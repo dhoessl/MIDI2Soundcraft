@@ -545,7 +545,7 @@ class Controller:
                 else:
                     return f"{int(self.MAP_TIME_DELAY[sel](fx_val))} ms"
             elif par == "par2":
-                if self.fx[1]["par1"] > 0:
+                if self.fx["1"]["par1"] > 0:
                     return "TIME MODE"
                 else:
                     return f"{round(float(self.MAP_200(fx_val)), 1)}%"
