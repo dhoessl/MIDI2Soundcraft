@@ -160,14 +160,14 @@ class Controller:
         counter = 0
         while not self.listener.connected:
             self.lcdsender.send(
-                "on_next",
+                "on_next_or_id",
                 ["INFO: Mixer", f"waiting {counter}"],
                 "mixer_status"
             )
             counter += 1
             sleep(.5)
         self.lcdsender.send(
-            "on_next",
+            "on_next_or_id",
             ["INFO: Mixer", "Connected!"],
             "mixer_status"
         )
@@ -199,7 +199,7 @@ class Controller:
                 self.apc_master_lock_entry = []
                 self.apc.gridbuttons.set_led(4, 7, "red", "bright")
                 self.lcdsender.send(
-                    "on_next",
+                    "on_next_or_id",
                     ["WARN: Master", "Locked"],
                     "lock_status"
                 )
@@ -212,7 +212,7 @@ class Controller:
                 if self.apc_master_lock_entry == self.apc_master_lock:
                     self.apc.gridbuttons.set_led(4, 7, "green", "bright")
                     self.lcdsender.send(
-                        "on_next",
+                        "on_next_or_id",
                         ["INFO: Master", "Unlocked"],
                         "lock_status"
                     )
@@ -220,7 +220,7 @@ class Controller:
         if self.display_view == 7 and event.state:
             if self.apc_master_lock_entry != self.apc_master_lock:
                 self.lcdsender.send(
-                    "on_next",
+                    "on_next_or_id",
                     ["MASTER FXRETURN", "LOCKED"],
                     "lock_status"
                 )
@@ -637,7 +637,7 @@ class Controller:
                 if init_run:
                     init_run = False
                     self.lcdsender.send(
-                        "on_next",
+                        "on_next_or_id",
                         ["Config loaded", " "],
                         "config"
                     )
@@ -665,7 +665,7 @@ class Controller:
                     # NOTE: Display Channel -> FX send data
                     if not init_run:
                         self.lcdsender.send(
-                            "on_next",
+                            "on_next_or_id",
                             [
                                 f"CH: {msg['channel']} > "
                                 f"{self.get_fx_name(msg['option_channel'])}",
@@ -681,7 +681,7 @@ class Controller:
                     if not init_run:
                         # NOTE: Display on LCD Matrix the set values
                         self.lcdsender.send(
-                            "on_next",
+                            "on_next_or_id",
                             [
                                 f"CH: {msg['channel']}",
                                 f"{self.get_mix_vals_as_str(msg['value'])}"
@@ -697,7 +697,7 @@ class Controller:
                 self.master = msg["value"]
                 if not init_run:
                     self.lcdsender.send(
-                        "on_next",
+                        "on_next_or_id",
                         [
                             "MASTER",
                             f"{self.get_mix_vals_as_str(msg['value'])}"
@@ -723,12 +723,12 @@ class Controller:
                         self.apc.update_fxreturn_channel(int(msg["channel"]))
                     if msg["function"] == "bpm":
                         self.lcdsender.send(
-                            "on_next", ["BPM", f"{msg['value']}"],
+                            "on_next_or_id", ["BPM", f"{msg['value']}"],
                             "fxsettingbpm"
                         )
                     else:
                         self.lcdsender.send(
-                            "on_next",
+                            "on_next_or_id",
                             [
                                 f"{self.get_fx_name(msg['channel'])} > "
                                 f"{self.get_fx_parname(msg['channel'], msg['function'])}",  # noqa: E501
@@ -753,13 +753,13 @@ class Controller:
             elif self.display_view == 7:
                 self.apc.display_master_fxreturn()
             self.lcdsender.send(
-                "on_next",
+                "on_next_or_id",
                 ["INFO: APC", "init complete"],
                 "apc_state"
             )
         except:  # noqa: E722
             self.lcdsender.send(
-                "on_next",
+                "on_next_or_id",
                 ["ERR: APC", "init failed"],
                 "apc_state"
             )
@@ -772,13 +772,13 @@ class Controller:
                 self
             )
             self.lcdsender.send(
-                "on_next",
+                "on_next_or_id",
                 ["INFO: Midimix", "Init complete"],
                 "midimix_state"
             )
         except:  # noqa: E722
             self.lcdsender.send(
-                "on_next",
+                "on_next_or_id",
                 ["ERR: Midimix", "Init failed!"],
                 "midimix_state"
             )
@@ -797,7 +797,7 @@ class Controller:
                 elif self.display_view == 7:
                     self.apc.display_master_fxreturn()
                 self.lcdsender.send(
-                    "on_next",
+                    "on_next_or_id",
                     ["APC connected", "Ready!"],
                     "apc_state"
                 )
@@ -811,7 +811,7 @@ class Controller:
                 # Recreate MIDIMix if its connected again and in Reconnect mode
                 self.midimix = Midimix(self.midimix.midi_string, True, self)
                 self.lcdsender.send(
-                    "on_next",
+                    "on_next_or_id",
                     ["Midimix", "connected"],
                     "midimix_state"
                 )
