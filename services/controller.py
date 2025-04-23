@@ -561,7 +561,7 @@ class Controller:
                     return f"{val} Hz"
         elif fx == 2:
             if par == "par1":
-                return f"{int(self.MAP_100mp(fx_val))}c"
+                return f"{int(self.MAP_100pm(fx_val))}c"
             elif par == "par2":
                 return f"{int(self.MAP_100(fx_val))}%"
             elif par == "par3":
