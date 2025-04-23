@@ -159,13 +159,24 @@ class Controller:
         """
         counter = 0
         while not self.listener.connected:
-            self.lcdsender.send("on_next", ["INFO: Mixer", f"waiting {counter}"], "mixer_status")
+            self.lcdsender.send(
+                "on_next",
+                ["INFO: Mixer", f"waiting {counter}"],
+                "mixer_status"
+            )
             counter += 1
             sleep(.5)
-        self.lcdsender.send("on_next", ["INFO: Mixer", "Connected!"], "mixer_status")
+        self.lcdsender.send(
+            "on_next",
+            ["INFO: Mixer", "Connected!"],
+            "mixer_status"
+        )
         # Load the listener again if no data was received
         while self.msg_bus.qsize() < 1:
-            self.listener = MixerListener(self.mixer_addr, 80, queue=self.msg_bus)
+            self.listener = MixerListener(
+                self.mixer_addr, 80,
+                queue=self.msg_bus
+            )
             sleep(.3)
         # start the config updates
         self.update_thread.start()
@@ -180,26 +191,39 @@ class Controller:
         if self.display_view not in [0, 7]:
             # Skip if not in the correct view
             return
-        if self.display_view == 7 and event.state and self.apc.shift and event.x in [4, 5, 6]:
+        if (self.display_view == 7 and event.state
+                and self.apc.shift and event.x in [4, 5, 6]):
             # NOTE: Master Unlock
             if event.x == 4 and event.y == 7:
                 # Reset the unlock
                 self.apc_master_lock_entry = []
                 self.apc.gridbuttons.set_led(4, 7, "red", "bright")
-                self.lcdsender.send("on_next", ["WARN: Master", "Locked"], "lock_status")
+                self.lcdsender.send(
+                    "on_next",
+                    ["WARN: Master", "Locked"],
+                    "lock_status"
+                )
                 return
             if self.apc_master_lock_entry == self.apc_master_lock:
                 # Already unlocked
                 return
-            if (event.x, event.y) == self.apc_master_lock[len(self.apc_master_lock_entry)]:
+            if (event.x, event.y) == self.apc_master_lock[len(self.apc_master_lock_entry)]:  # noqa: E501
                 self.apc_master_lock_entry.append((event.x, event.y))
                 if self.apc_master_lock_entry == self.apc_master_lock:
                     self.apc.gridbuttons.set_led(4, 7, "green", "bright")
-                    self.lcdsender.send("on_next", ["INFO: Master", "Unlocked"], "lock_status")
+                    self.lcdsender.send(
+                        "on_next",
+                        ["INFO: Master", "Unlocked"],
+                        "lock_status"
+                    )
                 return
         if self.display_view == 7 and event.state:
             if self.apc_master_lock_entry != self.apc_master_lock:
-                self.lcdsender.send("on_next", ["MASTER FXRETURN", "LOCKED"], "lock_status")
+                self.lcdsender.send(
+                    "on_next",
+                    ["MASTER FXRETURN", "LOCKED"],
+                    "lock_status"
+                )
                 return
             if event.x in range(4):
                 self.sender.mix(
@@ -239,7 +263,9 @@ class Controller:
         if self.apc.shift and self.display_view == 0:
             if event.button_id == 4 and self.apc_last_used_channel is not None:
                 # NOTE: Increase last set Mix channel by 0.01 (1%)
-                next_value = float(self.channels[str(self.apc_last_used_channel)]["mix"]) + 0.002
+                next_value = float(
+                    self.channels[str(self.apc_last_used_channel)]["mix"]
+                ) + 0.002
                 self.sender.mix(
                     self.apc_last_used_channel,
                     next_value if next_value <= 1 else 1,
@@ -248,7 +274,9 @@ class Controller:
                 return
             if event.button_id == 5 and self.apc_last_used_channel is not None:
                 # NOTE: Decrease last set Mix channel by 0.01 (1%)
-                next_value = float(self.channels[str(self.apc_last_used_channel)]["mix"]) - 0.002
+                next_value = float(
+                    self.channels[str(self.apc_last_used_channel)]["mix"]
+                ) - 0.002
                 self.sender.mix(
                     self.apc_last_used_channel,
                     event.x + self.channels_index,
@@ -256,23 +284,28 @@ class Controller:
                     "i"
                 )
                 return
-            if event.button_id == 6 and self.check_index(self.channels_index - 1, 0, 4):
+            if (event.button_id == 6
+                    and self.check_index(self.channels_index - 1, 0, 4)):
                 # NOTE: Move channels one to left (-1)
                 self.channels_index -= 1
                 self.apc.display_mix_channels()
                 return
-            if event.button_id == 7 and self.check_index(self.channels_index + 1, 0, 4):
+            if (event.button_id == 7
+                    and self.check_index(self.channels_index + 1, 0, 4)):
                 # NOTE: Move channels one to the right (+1)
                 self.channels_index += 1
                 self.apc.display_mix_channels()
                 return
-        if self.apc.shift and self.display_view == 7 and self.apc_last_used_channel is not None:
+        if (self.apc.shift and self.display_view == 7
+                and self.apc_last_used_channel is not None):
             if event.button_id == 4:
                 if self.apc_last_used_channel == 7:
                     next_value = float(self.master) + 0.002
                     self.sender.master(next_value if next_value <= 1 else 1)
                 else:
-                    next_value = float(self.fx[str(self.apc_last_used_channel)]["mix"]) + 0.002
+                    next_value = float(
+                        self.fx[str(self.apc_last_used_channel)]["mix"]
+                    ) + 0.002
                     self.sender.mix(
                         self.apc_last_used_channel,
                         next_value if next_value <= 1 else 1,
@@ -284,7 +317,9 @@ class Controller:
                     next_value = float(self.master) - 0.002
                     self.sender.master(next_value if next_value >= 0 else 0)
                 else:
-                    next_value = float(self.fx[str(self.apc_last_used_channel)]["mix"]) - 0.002
+                    next_value = float(
+                        self.fx[str(self.apc_last_used_channel)]["mix"]
+                    ) - 0.002
                     self.sender.mix(
                         self.apc_last_used_channel,
                         next_value if next_value >= 0 else 0,
@@ -315,7 +350,7 @@ class Controller:
         if self.display_view == 0 and event.fader_id in list(range(5)):
             self.sender.fx_setting(
                 0,
-                event.fader_id + 1,  # fx setting paramters are starting at 1 and ending at 6
+                event.fader_id + 1,
                 self.midi_to_soundcraft(event.value)
             )
         elif self.display_view == 0 and event.fader_id in list(range(5, 9)):
@@ -326,7 +361,8 @@ class Controller:
             )
         elif self.display_view == 7:
             # NOTE: just enable mixers if code was correctly entered
-            if event.fader_id in [4, 5, 6, 8] or self.apc_master_lock_entry != self.apc_master_lock:
+            if (event.fader_id in [4, 5, 6, 8]
+                    or self.apc_master_lock_entry != self.apc_master_lock):
                 # disabled fader
                 return
             if event.fader_id == 7:
@@ -362,7 +398,7 @@ class Controller:
         if event.fader_id in list(range(3)):
             self.sender.fx_setting(
                 2,
-                event.fader_id + 1,  # fx setting paramters are starting at 1 and ending at 6
+                event.fader_id + 1,
                 self.midi_to_soundcraft(event.value)
             )
         elif event.fader_id in list(range(3, 8)):
@@ -391,7 +427,8 @@ class Controller:
         # NOTE: Move Effect Channels for the Knobs
         if event.state and event.button_id and self.channelfxsend_index:
             self.channelfxsend_index = 0
-        if event.state and not event.button_id and not self.channelfxsend_index:
+        if (event.state and not event.button_id
+                and not self.channelfxsend_index):
             self.channelfxsend_index = 1
 
     def midi_mix_solo_event(self, state):
@@ -599,12 +636,16 @@ class Controller:
             if self.msg_bus.qsize() == 0:
                 if init_run:
                     init_run = False
-                    self.lcdsender.send("on_next", ["Config loaded", " "], "config")
+                    self.lcdsender.send(
+                        "on_next",
+                        ["Config loaded", " "],
+                        "config"
+                    )
                 sleep(0.1)
                 continue
             msg = self.msg_bus.get()
             if msg["kind"] not in ["m", "i", "f"]:
-                # Skip messages not containing m(aster), i(nput), f(x) information
+                # Skip messages not containing m(aster), i(nput), f(x) information  # noqa: E501
                 continue
             if "option" in msg and msg["option"] in options_filter:
                 # Skip messages filtered in the options_filter
@@ -626,14 +667,17 @@ class Controller:
                         self.lcdsender.send(
                             "on_next",
                             [
-                                f"CH: {msg['channel']} > {self.get_fx_name(msg['option_channel'])}",
+                                f"CH: {msg['channel']} > "
+                                f"{self.get_fx_name(msg['option_channel'])}",
                                 f"{self.get_mix_vals_as_str(msg['value'])}"
                             ],
-                            f"chfxsnd{msg['channel']}{self.get_fx_name(msg['option_channel'])}"
+                            f"chfxsnd{msg['channel']}"
+                            f"{self.get_fx_name(msg['option_channel'])}"
                         )
                     continue
-                if "function" in msg and msg["function"] in input_functions_filter:
-                    self.channels[msg["channel"]][msg["function"]] = msg["value"]
+                if ("function" in msg
+                        and msg["function"] in input_functions_filter):
+                    self.channels[msg["channel"]][msg["function"]] = msg["value"]  # noqa: E501
                     if not init_run:
                         # NOTE: Display on LCD Matrix the set values
                         self.lcdsender.send(
@@ -648,7 +692,8 @@ class Controller:
                             # NOTE Update Channel Mix/Mute/Gain on APC
                             self.apc.update_mix_channel(int(msg['channel']))
                     continue
-            if msg["kind"] == "m" and "channel" in msg and msg["channel"] == "mix":
+            if (msg["kind"] == "m" and "channel" in msg
+                    and msg["channel"] == "mix"):
                 self.master = msg["value"]
                 if not init_run:
                     self.lcdsender.send(
@@ -663,8 +708,9 @@ class Controller:
                         # NOTE: Update the master channel on apc grid
                         self.apc.update_master_channel()
                 continue
-            if (msg["kind"] == "f" and "function" in msg and
-                    (msg["function"] in fx_functions or match(r"^par\d$", msg["function"]))):
+            if (msg["kind"] == "f" and "function" in msg
+                    and (msg["function"] in fx_functions
+                         or match(r"^par\d$", msg["function"]))):
                 if msg["channel"] not in self.fx:
                     self.fx[msg["channel"]] = {}
                 self.fx[msg["channel"]][msg["function"]] = msg["value"]
@@ -672,7 +718,8 @@ class Controller:
                     # Note: Display fx Settings on LCD Matrix
                     if self.display_view == 7 and msg["function"] == "mix":
                         # just display fx_return on the grid
-                        # other notifications will be displayed on the display matrix
+                        # other notifications will be displayed on
+                        # the display matrix
                         self.apc.update_fxreturn_channel(int(msg["channel"]))
                     if msg["function"] == "bpm":
                         self.lcdsender.send(
@@ -684,8 +731,8 @@ class Controller:
                             "on_next",
                             [
                                 f"{self.get_fx_name(msg['channel'])} > "
-                                f"{self.get_fx_parname(msg['channel'], msg['function'])}",
-                                f"{self.get_fx_par_vals(msg['channel'], msg['function'])}"
+                                f"{self.get_fx_parname(msg['channel'], msg['function'])}",  # noqa: E501
+                                f"{self.get_fx_par_vals(msg['channel'], msg['function'])}"  # noqa: E501
                             ],
                             f"fxsetting{msg['channel']}{msg['function']}"
                         )
@@ -705,9 +752,17 @@ class Controller:
                 self.apc.display_mix_channels()
             elif self.display_view == 7:
                 self.apc.display_master_fxreturn()
-            self.lcdsender.send("on_next", ["INFO: APC", "init complete"], "apc_state")
+            self.lcdsender.send(
+                "on_next",
+                ["INFO: APC", "init complete"],
+                "apc_state"
+            )
         except:  # noqa: E722
-            self.lcdsender.send("on_next", ["ERR: APC", "init failed"], "apc_state")
+            self.lcdsender.send(
+                "on_next",
+                ["ERR: APC", "init failed"],
+                "apc_state"
+            )
             print("Error init APC")
             self.apc = None
         try:
@@ -716,9 +771,17 @@ class Controller:
                 True,
                 self
             )
-            self.lcdsender.send("on_next", ["INFO: Midimix", "Init complete"], "midimix_state")
+            self.lcdsender.send(
+                "on_next",
+                ["INFO: Midimix", "Init complete"],
+                "midimix_state"
+            )
         except:  # noqa: E722
-            self.lcdsender.send("on_next", ["ERR: Midimix", "Init failed!"], "midimix_state")
+            self.lcdsender.send(
+                "on_next",
+                ["ERR: Midimix", "Init failed!"],
+                "midimix_state"
+            )
             print("Error init MIDI Mix")
             self.midimix = None
         while not self.midi_keepalive_exit.is_set():
@@ -733,16 +796,25 @@ class Controller:
                     self.apc.display_mix_channels()
                 elif self.display_view == 7:
                     self.apc.display_master_fxreturn()
-                self.lcdsender.send("on_next", ["APC connected", "Ready!"], "apc_state")
+                self.lcdsender.send(
+                    "on_next",
+                    ["APC connected", "Ready!"],
+                    "apc_state"
+                )
                 # Disable reconnect mode
                 reconnect["apc"] = False
-            if self.midimix and self.midimix.ready and not self.midimix.is_alive():
+            if (self.midimix and self.midimix.ready
+                    and not self.midimix.is_alive()):
                 # If MIDIMix is not connected set the reconnect flag
                 reconnect["midimix"] = True
             if reconnect["midimix"] and self.midimix.is_alive():
                 # Recreate MIDIMix if its connected again and in Reconnect mode
                 self.midimix = Midimix(self.midimix.midi_string, True, self)
-                self.lcdsender.send("on_next", ["Midimix", "connected"], "midimix_state")
+                self.lcdsender.send(
+                    "on_next",
+                    ["Midimix", "connected"],
+                    "midimix_state"
+                )
                 # Disable reconnect mode
                 reconnect["midimix"] = False
             sleep(5)
