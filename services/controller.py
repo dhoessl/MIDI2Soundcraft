@@ -1,11 +1,13 @@
 from soundcraft_ui16 import MixerListener, MixerSender
-from lcd_i2c_display_matrix.lcd_websocket_sender import MatrixCommandSender
+# from lcd_i2c_display_matrix.lcd_websocket_sender import MatrixCommandSender
 from .midi_controller import APC, Midimix, get_midi_string
 from queue import Queue
 from threading import Thread, Event
 from time import sleep
 from re import match
 from scipy.interpolate import interp1d
+from logging import getLogger
+from colorama import Fore, Style
 
 
 class Controller:
@@ -98,23 +100,37 @@ class Controller:
         interp1d([.9, 1], [794, 1000]),
     ]
 
-    def __init__(self, mixer_addr, lcd_addr):
+    def __init__(self, mixer_addr, lcd_addr, logger, args):
         """ Brain of the connection between APC mini mk2 and Soundcraft UI16
             self.apc is the connection to the APC mini mk2.
             self.listener and self.sender are the connection to the Soundcraft
         """
+        self.logger = getLogger(logger)
+        self.args = args
         self.mixer_addr = mixer_addr
         self.lcd_addr = lcd_addr
         self.apc = None
         self.midi_mix = None
         self.apc_discovery_string = r"^APC mini mk2.*?Contr.*?$"
         self.midimix_discovery_string = r"^MIDI Mix.*?$"
+        if args.verbose:
+            self.logger.info(f"apc discovery: {self.apc_discovery_string}")
+            self.logger.info(
+                f"midimix discover: {self.midimix_discovery_string}"
+            )
+            from mido import get_output_names
+            self.logger.info(f"Available Midi Outputs:\n{get_output_names()}")
 
         # # Soundcraft Control
         self.msg_bus = Queue()
         # Setup sender connection
-        self.sender = MixerSender(mixer_addr, 80)
-        self.listener = MixerListener(mixer_addr, 80, queue=self.msg_bus)
+        if args.verbose:
+            self.logger.info("Starting Mixer sender and listener")
+        self.sender = MixerSender(mixer_addr, 80, logger_name=self.logger.name)
+        self.listener = MixerListener(
+            mixer_addr, 80, queue=self.msg_bus,
+            logger_name=self.logger.name
+        )
         # Start the listener and sender
         self.listener.start()
         self.sender.start()
@@ -148,9 +164,10 @@ class Controller:
         self.apc_last_used_channel = None
         self.apc_master_lock = [(4, 0), (5, 0), (6, 0), (6, 7)]
         self.apc_master_lock_entry = []
-
-        # LCD Matrix Sender
-        self.lcdsender = MatrixCommandSender(lcd_addr, 80)
+        if args.verbose:
+            self.logger.info(
+                f"{Fore.GREEN}Mixer Controller setup finished{Style.RESET_ALL}"
+            )
 
     def run(self) -> None:
         """
@@ -159,17 +176,15 @@ class Controller:
         """
         counter = 0
         while not self.listener.connected:
-            self.lcdsender.send(
-                "on_next_or_id",
-                ["INFO: Mixer", f"waiting {counter}"],
-                "mixer_status"
+            self.logger.info(
+                f"{Fore.YELLOW}Waiting for Mixer connection."
+                f"Count: {counter}{Style.RESET_ALL}"
             )
             counter += 1
             sleep(.5)
-        self.lcdsender.send(
-            "on_next_or_id",
-            ["INFO: Mixer", "Connected!"],
-            "mixer_status"
+        self.logger.info(
+            f"{Fore.GREEN}Mixer is connected! {counter // 2} seconds."
+            f"{Style.RESET_ALL}"
         )
         # Load the listener again if no data was received
         while self.msg_bus.qsize() < 1:
@@ -198,10 +213,8 @@ class Controller:
                 # Reset the unlock
                 self.apc_master_lock_entry = []
                 self.apc.gridbuttons.set_led(4, 7, "red", "bright")
-                self.lcdsender.send(
-                    "on_next_or_id",
-                    ["WARN: Master", "Locked"],
-                    "lock_status"
+                self.logger.warning(
+                    f"{Fore.YELLOW}Master => locked!{Style.RESET_ALL}"
                 )
                 return
             if self.apc_master_lock_entry == self.apc_master_lock:
@@ -211,18 +224,15 @@ class Controller:
                 self.apc_master_lock_entry.append((event.x, event.y))
                 if self.apc_master_lock_entry == self.apc_master_lock:
                     self.apc.gridbuttons.set_led(4, 7, "green", "bright")
-                    self.lcdsender.send(
-                        "on_next_or_id",
-                        ["INFO: Master", "Unlocked"],
-                        "lock_status"
+                    self.logger.warning(
+                        f"{Fore.GREEN}Master => unlocked!{Style.RESET_ALL}"
                     )
                 return
         if self.display_view == 7 and event.state:
             if self.apc_master_lock_entry != self.apc_master_lock:
-                self.lcdsender.send(
-                    "on_next_or_id",
-                    ["MASTER FXRETURN", "LOCKED"],
-                    "lock_status"
+                self.logger.warning(
+                    f"{Fore.YELLOW}Master - FX Return -> Locked!"
+                    f"{Style.RESET_ALL}"
                 )
                 return
             if event.x in range(4):
@@ -636,10 +646,9 @@ class Controller:
             if self.msg_bus.qsize() == 0:
                 if init_run:
                     init_run = False
-                    self.lcdsender.send(
-                        "on_next_or_id",
-                        ["Config loaded", " "],
-                        "config"
+                    self.logger.info(
+                        f"{Fore.GREEN}Config has been loaded"
+                        f"{Style.RESET_ALL}"
                     )
                 sleep(0.1)
                 continue
@@ -664,78 +673,60 @@ class Controller:
                     fx[msg["function"]] = msg["value"]
                     # NOTE: Display Channel -> FX send data
                     if not init_run:
-                        self.lcdsender.send(
-                            "on_next_or_id",
-                            [
-                                f"CH: {msg['channel']} > "
-                                f"{self.get_fx_name(msg['option_channel'])}",
-                                f"{self.get_mix_vals_as_str(msg['value'])}"
-                            ],
-                            f"chfxsnd{msg['channel']}"
-                            f"{self.get_fx_name(msg['option_channel'])}"
+                        self.logger.info(
+                            f"Channel {msg['channel']} "
+                            f"=> {self.get_fx_name(msg['option_channel'])}"
+                            f"=> {self.get_mix_vals_as_str(msg['value'])}"
                         )
                     continue
                 if ("function" in msg
                         and msg["function"] in input_functions_filter):
                     self.channels[msg["channel"]][msg["function"]] = msg["value"]  # noqa: E501
-                    if not init_run:
-                        # NOTE: Display on LCD Matrix the set values
-                        self.lcdsender.send(
-                            "on_next_or_id",
-                            [
-                                f"CH: {msg['channel']}",
-                                f"{self.get_mix_vals_as_str(msg['value'])}"
-                            ],
-                            f"chmix{msg['channel']}"
-                        )
-                        if self.display_view == 0:
-                            # NOTE Update Channel Mix/Mute/Gain on APC
-                            self.apc.update_mix_channel(int(msg['channel']))
-                    continue
+                    if init_run:
+                        continue
+                    # NOTE: Display on LCD Matrix the set values
+                    self.logger.info(
+                        f"Channel {msg['channel']}"
+                        f"{self.get_mix_vals_as_str(msg['value'])}"
+                    )
+                    if self.display_view == 0:
+                        # NOTE Update Channel Mix/Mute/Gain on APC
+                        self.apc.update_mix_channel(int(msg['channel']))
             if (msg["kind"] == "m" and "channel" in msg
                     and msg["channel"] == "mix"):
                 self.master = msg["value"]
-                if not init_run:
-                    self.lcdsender.send(
-                        "on_next_or_id",
-                        [
-                            "MASTER",
-                            f"{self.get_mix_vals_as_str(msg['value'])}"
-                        ],
-                        "mastermix"
-                    )
-                    if self.display_view == 7:
-                        # NOTE: Update the master channel on apc grid
-                        self.apc.update_master_channel()
-                continue
+                if init_run:
+                    continue
+                self.logger.warning(
+                    f"{Fore.RED}MASTER => "
+                    f"{self.get_mix_vals_as_str(msg['value'])}"
+                    f"{Style.RESET_ALL}"
+                )
+                if self.display_view == 7:
+                    # NOTE: Update the master channel on apc grid
+                    self.apc.update_master_channel()
             if (msg["kind"] == "f" and "function" in msg
                     and (msg["function"] in fx_functions
                          or match(r"^par\d$", msg["function"]))):
                 if msg["channel"] not in self.fx:
                     self.fx[msg["channel"]] = {}
                 self.fx[msg["channel"]][msg["function"]] = msg["value"]
-                if not init_run:
-                    # Note: Display fx Settings on LCD Matrix
-                    if self.display_view == 7 and msg["function"] == "mix":
-                        # just display fx_return on the grid
-                        # other notifications will be displayed on
-                        # the display matrix
-                        self.apc.update_fxreturn_channel(int(msg["channel"]))
-                    if msg["function"] == "bpm":
-                        self.lcdsender.send(
-                            "on_next_or_id", ["BPM", f"{msg['value']}"],
-                            "fxsettingbpm"
-                        )
-                    else:
-                        self.lcdsender.send(
-                            "on_next_or_id",
-                            [
-                                f"{self.get_fx_name(msg['channel'])} > "
-                                f"{self.get_fx_parname(msg['channel'], msg['function'])}",  # noqa: E501
-                                f"{self.get_fx_par_vals(msg['channel'], msg['function'])}"  # noqa: E501
-                            ],
-                            f"fxsetting{msg['channel']}{msg['function']}"
-                        )
+                if init_run:
+                    continue
+                # Note: Display fx Settings on LCD Matrix
+                if self.display_view == 7 and msg["function"] == "mix":
+                    # just display fx_return on the grid
+                    # other notifications will be displayed on
+                    # the display matrix
+                    self.apc.update_fxreturn_channel(int(msg["channel"]))
+                if msg["function"] == "bpm":
+                    self.logger.info(f"BPM => {msg['value']}")
+                else:
+                    self.logger.info(
+                        f"{self.get_fx_name(msg['channel'])} "
+                        f"=> {self.get_fx_parname(msg['channel'], msg['function'])}"  # noqa: E501
+                        f"=> {self.get_fx_par_vals(msg['channel'], msg['function'])}"  # noqa: E501
+                    )
 
     def midi_keepalive(self) -> None:
         reconnect = {
@@ -746,43 +737,34 @@ class Controller:
             self.apc = APC(
                 get_midi_string(self.apc_discovery_string),
                 True,
-                self
+                self,
+                self.logger.name
             )
             if self.display_view == 0:
                 self.apc.display_mix_channels()
             elif self.display_view == 7:
                 self.apc.display_master_fxreturn()
-            self.lcdsender.send(
-                "on_next_or_id",
-                ["INFO: APC", "init complete"],
-                "apc_state"
+            self.logger.info(
+                f"{Fore.GREEN}APC => Init completed{Style.RESET_ALL}"
             )
         except:  # noqa: E722
-            self.lcdsender.send(
-                "on_next_or_id",
-                ["ERR: APC", "init failed"],
-                "apc_state"
-            )
-            print("Error init APC")
+            self.logger.critical(
+                f"{Fore.RED}APC => Init failed!{Style.RESET_ALL}")
             self.apc = None
         try:
             self.midimix = Midimix(
                 get_midi_string(self.midimix_discovery_string),
                 True,
-                self
+                self,
+                self.logger.name
             )
-            self.lcdsender.send(
-                "on_next_or_id",
-                ["INFO: Midimix", "Init complete"],
-                "midimix_state"
+            self.logger.info(
+                f"{Fore.GREEN}MidiMix => Init completed{Style.RESET_ALL}"
             )
         except:  # noqa: E722
-            self.lcdsender.send(
-                "on_next_or_id",
-                ["ERR: Midimix", "Init failed!"],
-                "midimix_state"
+            self.logger.critical(
+                f"{Fore.RED}MidiMix => Init failed!{Style.RESET_ALL}"
             )
-            print("Error init MIDI Mix")
             self.midimix = None
         while not self.midi_keepalive_exit.is_set():
             if self.apc and self.apc.ready and not self.apc.is_alive():
@@ -796,10 +778,8 @@ class Controller:
                     self.apc.display_mix_channels()
                 elif self.display_view == 7:
                     self.apc.display_master_fxreturn()
-                self.lcdsender.send(
-                    "on_next_or_id",
-                    ["APC connected", "Ready!"],
-                    "apc_state"
+                self.logger.info(
+                    f"{Fore.GREEN}APC connected and ready{Style.RESET_ALL}"
                 )
                 # Disable reconnect mode
                 reconnect["apc"] = False
@@ -810,10 +790,8 @@ class Controller:
             if reconnect["midimix"] and self.midimix.is_alive():
                 # Recreate MIDIMix if its connected again and in Reconnect mode
                 self.midimix = Midimix(self.midimix.midi_string, True, self)
-                self.lcdsender.send(
-                    "on_next_or_id",
-                    ["Midimix", "connected"],
-                    "midimix_state"
+                self.logger.info(
+                    f"{Fore.GREEN}MidiMix connected and ready{Style.RESET_ALL}"
                 )
                 # Disable reconnect mode
                 reconnect["midimix"] = False

@@ -27,8 +27,8 @@ Raspberry Pi Zero W   : 10.10.1.10
 # Required Modules and libraries
 ```
 pip3 install -U git+https://github.com/dhoessl/apc-mini-py
-pip3 install -U git+https://github.com/dhoessl/HD44780_1620_display_matrix
-pip3 install -U git+https://github.com/dhoessl/soundcraft_u16
+pip3 install -U git+https://github.com/dhoessl/HD44780_1602_display_matrix
+pip3 install -U git+https://github.com/dhoessl/soundcraft_ui16
 pip3 install scipy
 pip3 install mido
 ```

@@ -4,11 +4,20 @@ from akai_pro_py import controllers
 from time import sleep
 from re import match
 from mido import get_output_names
+from colorama import Fore, Style
+from logging import getLogger, INFO
 
 
 class APC(controllers.APCMinimkii):
-    def __init__(self, midi_string, state, controller=None) -> None:
+    def __init__(
+            self, midi_string: str,
+            state: bool, controller=None,
+            logname: str = "APC"
+    ) -> None:
         super().__init__(midi_string, midi_string)
+        self.logger = getLogger(logname)
+        if self.logger.level < 20:
+            self.logger.setLevel(INFO)
         self.midi_string = midi_string
         self.controller = controller
         self.ready_dispatch = self.on_ready
@@ -18,7 +27,9 @@ class APC(controllers.APCMinimkii):
         self.shift = False
 
     def on_ready(self) -> None:
-        print(f"{self.name}: Ready check in progress!")
+        self.logger.info(
+            f"{Fore.Yellow}{self.name} Ready Check{Style.RESET_ALL}"
+        )
         if self.mixer_is_connected:
             for x in range(8):
                 self.lowerbuttons.set_led(x, 1)
@@ -31,11 +42,17 @@ class APC(controllers.APCMinimkii):
                 self.gridbuttons.set_led(x, x, "red", "bright")
                 self.gridbuttons.set_led(x, 7-x, "red", "bright")
         self.ready = True
-        print(f"{self.name}: Ready check completed!")
+        self.logger.info(
+            f"{Fore.GREEN}{self.name} Ready Check completed!"
+            f"{Style.RESET_ALL}"
+        )
 
     def on_event(self, event) -> None:
         if not self.mixer_is_connected:
-            print(f"{self.name}: Controller not connected - Abort event")
+            self.logger.error(
+                f"{Fore.RED}{self.name} -> Not connected - Abort Event"
+                f"{Style.RESET_ALL}"
+            )
         if isinstance(event, self.GridButton):
             self.controller.apc_grid_event(event)
         elif isinstance(event, self.SideButton):
@@ -60,7 +77,9 @@ class APC(controllers.APCMinimkii):
         """ render full channel mix overview """
         self.reset(fast=True)
         self.set_view_button()
-        for channel in range(self.controller.channels_index, self.controller.channels_index + 8):
+        for channel in range(
+                self.controller.channels_index,
+                self.controller.channels_index + 8):
             self.update_mix_channel(channel)
 
     def update_mix_channel(self, channel: int) -> None:
@@ -100,7 +119,10 @@ class APC(controllers.APCMinimkii):
             Set Sidebutton on if its the current view, else turn it off
         """
         for y in range(0, 8):
-            self.sidebuttons.set_led(y, 0 if y != self.controller.display_view else 1)
+            self.sidebuttons.set_led(
+                y,
+                0 if y != self.controller.display_view else 1
+            )
 
     def display_channel(
             self, channel: int, value: str, colour: str,
@@ -121,8 +143,15 @@ class APC(controllers.APCMinimkii):
 
 
 class Midimix(controllers.MIDIMix):
-    def __init__(self, midi_string, state, controller=None) -> None:
+    def __init__(
+            self, midi_string: str,
+            state: bool, controller=None,
+            logname: str = "MidiMix"
+    ) -> None:
         super().__init__(midi_string, midi_string)
+        self.logger = getLogger(logname)
+        if self.logger.level < 20:
+            self.logger.setLevel(INFO)
         self.midi_string = midi_string
         self.controller = controller
         self.event_dispatch = self.on_event
@@ -132,7 +161,9 @@ class Midimix(controllers.MIDIMix):
         self.shift = False
 
     def on_ready(self) -> None:
-        print(f"{self.name}: Ready check in progress!")
+        self.logger.info(
+            f"{Fore.Yellow}{self.name} Ready Check{Style.RESET_ALL}"
+        )
         if self.mixer_is_connected:
             for x in range(8):
                 self.mutebuttons.set_led(x, 1)
@@ -155,11 +186,17 @@ class Midimix(controllers.MIDIMix):
                 sleep(0.2)
                 counter += 1
         self.ready = True
-        print(f"{self.name}: Ready check completed!")
+        self.logger.info(
+            f"{Fore.GREEN}{self.name} Ready Check completed!"
+            f"{Style.RESET_ALL}"
+        )
 
     def on_event(self, event) -> None:
         if not self.mixer_is_connected:
-            print(f"{self.name}: Controller not connected - Abort event")
+            self.logger.error(
+                f"{Fore.RED}{self.name} -> Not connected - Abort Event"
+                f"{Style.RESET_ALL}"
+            )
         if isinstance(event, self.Knob):
             self.controller.midi_mix_knob_event(event)
         if isinstance(event, self.Fader):
