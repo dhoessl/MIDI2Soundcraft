@@ -4,7 +4,8 @@ from subprocess import Popen, PIPE
 from time import sleep
 from logging import (
     StreamHandler, FileHandler, Formatter,
-    getLogger, Logger, INFO
+    getLogger, Logger,
+    DEBUG, INFO, WARNING, ERROR, CRITICAL
 )
 from sys import stdout
 from os import path
@@ -13,6 +14,26 @@ from argparse import ArgumentParser, Namespace
 from colorama import Fore, Style
 
 LOGGING_FILE = "/var/log/midi2soundcraft.log"
+
+
+class ColoredFormatter(Formatter):
+    """Logging Formatter to add colors and count warning / errors"""
+
+    message_format = "%(asctime)s - %(filename)s => %(funcName)s\n"
+    message_format += "\t%(levelname)s: %(message)s"
+
+    FORMATS = {
+        DEBUG: Fore.WHITE + message_format + Style.RESET_ALL,
+        INFO: Fore.WHITE + message_format + Style.RESET_ALL,
+        WARNING: Fore.YELLOW + message_format + Style.RESET_ALL,
+        ERROR: Fore.RED + message_format + Style.RESET_ALL,
+        CRITICAL: Fore.RED + message_format + Style.RESET_ALL
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = Formatter(log_fmt)
+        return formatter.format(record)
 
 
 def get_logger(name, logfile) -> Logger:
@@ -24,10 +45,11 @@ def get_logger(name, logfile) -> Logger:
     logger = getLogger(name)
     # Create logger to the console
     console_handler = StreamHandler(stream=stdout)
-    console_formatter = Formatter(
-        "%(asctime)s - %(filename)s => %(funcName)s\n"
-        "\t%(levelname)s: %(message)s"
-    )
+    # console_formatter = Formatter(
+    #     "%(asctime)s - %(filename)s => %(funcName)s\n"
+    #     "\t%(levelname)s: %(message)s"
+    # )
+    console_formatter = ColoredFormatter()
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
     # Create logger to a file
@@ -92,5 +114,7 @@ if __name__ == "__main__":
     logger_name = "MIDI2Soundcraft"
     logger = get_logger(logger_name, args.logfile)
     wait_connect(args.skip_network_check)
-    controller = Controller("10.10.1.1", "10.10.1.10", logger_name, args)
+    controller = Controller(
+        "10.10.1.1", "10.10.1.10", args, logger=logger_name
+    )
     controller.run()
