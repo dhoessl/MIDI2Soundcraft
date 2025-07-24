@@ -62,7 +62,9 @@ class Config:
     def update_fx(self, fx_id, key, value) -> None:
         self.fx.update(fx_id, key, value)
         # send fx1 par1 parameter to set delay mode correctly
-        fx1par1 = 1 if not int(fx_id) != 1 else self.get_fx_value("1", "par1")
+        fx1par1 = 1
+        if int(fx_id) == 1 and key == "par2":
+            fx1par1 = float(self.get_fx_value("1", "par1"))
         self.logger.info(
             f"{self.formatter.fx_name(fx_id)} => "
             f"{self.formatter.fx_parname(fx_id, key)} => "
@@ -74,8 +76,12 @@ class Config:
 
     def update_channel(self, channel_id, key, value) -> None:
         self.channels.update(channel_id, key, value)
+        if key == "mix" or key == "gain":
+            return_value = self.formatter.mix(value)
+        if key == "mute" or key == "solo":
+            return_value = False if int(value) == 0 else True
         self.logger.info(
-            f"Channel {channel_id} => {self.formatter.mix(value)}"
+            f"Channel {channel_id} => {key} => {return_value}"
         )
 
     def get_channel_value(self, channel_id, value) -> str:
@@ -120,6 +126,22 @@ class Fx:
         self.functions = {}
 
     def update(self, key, value) -> None:
+        if self.id == "0" and key == "par6":
+            # this par does not exist
+            return None
+        if self.id == "3" and key == "par6":
+            # this par does not exist
+            return None
+        if self.id == "1" and (key == "par5" or key == "par6"):
+            # these par does not exist for this fx
+            return None
+        if self.id == "2" and (
+            key == "par4"
+            or key == "par5"
+            or key == "par6"
+        ):
+            # These keys do not exist either
+            return None
         self.functions[key] = value
 
     def get_value(self, key) -> str:
@@ -135,8 +157,6 @@ class FxCollection:
 
     def update(self, fx_id, key, value) -> None:
         update_fx = self.get_fx(fx_id)
-        if update_fx:
-            print(f"\n\nFx {fx_id} not found\n\n")
         update_fx.update(key, value)
 
     def get_value(self, fx_id, key) -> None:
@@ -166,16 +186,16 @@ class Channel:
         self.functions = {}
 
     def update_fx(self, fx_id, key, value) -> None:
-        self.fx.update_fx(fx_id, key, value)
+        self.fx.update(fx_id, key, value)
 
     def update(self, key, value) -> None:
         self.functions[key] = value
 
     def get_fx_value(self, fx_id, key) -> str:
-        return self.fx.get_function(fx_id, key)
+        return self.fx.get_value(fx_id, key)
 
     def get_value(self, key) -> str:
-        if key not in self.function:
+        if key not in self.functions:
             return None
         return self.functions[key]
 
@@ -201,11 +221,11 @@ class ChannelCollection:
 
     def get_fx_value(self, channel_id, fx_id, key) -> str:
         channel = self.get_channel(channel_id)
-        return channel.get_fx_function(fx_id, key)
+        return channel.get_fx_value(fx_id, key)
 
     def get_value(self, channel_id, key) -> str:
         channel = self.get_channel(channel_id)
-        return channel.get_function(key)
+        return channel.get_value(key)
 
     def get_channel(self, channel_id) -> Channel:
         """ Search for the specific Channel inside self.channels

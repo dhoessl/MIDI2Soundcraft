@@ -155,7 +155,7 @@ class OutputFormatter:
         self.vars = ConfigVars()
 
     def fx_name(self, num) -> str:
-        return self.vars.map_fxname(int(num))
+        return self.vars.map_fxname[int(num)]
 
     def mix(self, val) -> str:
         if float(val) >= self.vars.mix["50"].x[0]:
@@ -175,7 +175,15 @@ class OutputFormatter:
         try:
             return self.vars.map_parname[fx][int(par[-1:])]
         except (KeyError, ValueError):
-            return self.vars.map_parname["special"][par[-1:]]
+            try:
+                return self.vars.map_parname["special"][par[-1:]]
+            except KeyError:
+                # all fx will call for par up to 6 but they do not
+                # got it
+                # fx0 and fx3: par6
+                # fx1: par5, par6
+                # fx2: par4, par5, par6
+                return None
 
     def fx_parval(self, fx, par, val, fx1par1=1) -> str:
         fx = int(fx)
@@ -191,7 +199,7 @@ class OutputFormatter:
             if par == "par1":
                 return f"{int(self.vars.time_rev[sel](fx_val))} ms"
             elif par == "par2" or par == "par3":
-                return f"{int(self.vars.map['100'](fx_val))}%"
+                return f"{int(self.vars.map_values['100'](fx_val))}%"
             elif par == "par4":
                 val = int(self.vars.lpf_rev[sel](fx_val))
                 if val >= 10e3:
@@ -213,12 +221,17 @@ class OutputFormatter:
                 else:
                     return f"{int(self.vars.time_delay[sel](fx_val))} ms"
             elif par == "par2":
+                print(f"{fx1par1}")
                 if fx1par1 > 0:
                     return "TIME MODE"
                 else:
-                    return f"{round(float(self.vars.map['200'](fx_val)), 1)}%"
+                    output = round(
+                        float(self.vars.map_values['200'](fx_val)),
+                        1
+                    )
+                    return f"{output}%"
             elif par == "par3":
-                return f"{int(self.vars.map['100'](fx_val))}%"
+                return f"{int(self.vars.map_values['100'](fx_val))}%"
             elif par == "par4":
                 val = int(self.vars.lpf_delay[sel](fx_val))
                 if val >= 10e3:
@@ -229,9 +242,9 @@ class OutputFormatter:
                     return f"{val} Hz"
         elif fx == 2:
             if par == "par1":
-                return f"{int(self.vars.map['100pm'](fx_val))}c"
+                return f"{int(self.vars.map_values['100pm'](fx_val))}c"
             elif par == "par2":
-                return f"{int(self.vars.map['100'](fx_val))}%"
+                return f"{int(self.vars.map_values['100'](fx_val))}%"
             elif par == "par3":
                 val = int(self.vars.lpf_rev[sel](fx_val))
                 if val >= 10e3:
@@ -244,9 +257,9 @@ class OutputFormatter:
             if par == "par1":
                 return f"{int(self.vars.time_room[sel](fx_val))} ms"
             elif par == "par2":
-                return f"{int(self.vars.map['100'](fx_val))}%"
+                return f"{int(self.vars.map_values['100'](fx_val))}%"
             elif par == "par3":
-                return f"{int(self.vars.map['100'](fx_val))}%"
+                return f"{int(self.vars.map_values['100'](fx_val))}%"
             elif par == "par4":
                 val = int(self.vars.lpf_rev[sel](fx_val))
                 if val >= 10e3:
@@ -257,7 +270,6 @@ class OutputFormatter:
                     return f"{val} Hz"
             elif par == "par5":
                 val = int(self.vars.hpf_rev[sel](fx_val))
-                print(f"{val}")
                 if val >= 10e2:
                     return f"{round(val / 1000, 2)} kHz"
                 else:

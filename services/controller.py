@@ -354,9 +354,9 @@ class Controller:
         """ Create and load presets """
         if not event.state:
             return None
-        if not self.midimix.shift and event.button_id in self.config_presets:
+        if not self.apc.shift and str(event.button_id) in self.config_presets:
             # Load Config
-            effects = self.config_presets[event.button_id]["fx"]
+            effects = self.config_presets[str(event.button_id)]["fx"]
             for fx in effects:
                 for option in effects[fx]:
                     if "par" not in option:
@@ -367,17 +367,17 @@ class Controller:
                         float(effects[fx][option])
                     )
         elif (
-            not self.midimix.shift
-            and event.button_id not in self.config_presets
+            not self.apc.shift
+            and str(event.button_id) not in self.config_presets
         ):
             # Save config as preset
-            new_preset = self.config.create_preset(event.button_id)
-            self.config_presets[event.button_id] = new_preset
+            self.config.create_preset(str(event.button_id))
+            self.config_presets = load_presets()
             self.midimix.mutebuttons.set_led(event.button_id, 1)
-        elif self.midimix.shift and event.button_id in self.config_presets:
+        elif self.apc.shift and str(event.button_id) in self.config_presets:
             # Delete a preset
-            remove_preset(event.button_id)
-            del self.config_presets[event.button_id]
+            remove_preset(str(event.button_id))
+            del self.config_presets[str(event.button_id)]
             self.midimix.mutebuttons.set_led(event.button_id, 0)
         else:
             # Do nothing no preset is set here
@@ -388,11 +388,11 @@ class Controller:
         if not event.state:
             return None
         if (
-            not self.midimix.shift
-            and event.button_id + 8 in self.config_presets
+            not self.apc.shift
+            and str(event.button_id + 8) in self.config_presets
         ):
             # Load Config
-            effects = self.config_presets[event.button_id + 8]["fx"]
+            effects = self.config_presets[str(event.button_id + 8)]["fx"]
             for fx in effects:
                 for option in effects[fx]:
                     if "par" not in option:
@@ -403,20 +403,20 @@ class Controller:
                         float(effects[fx][option])
                     )
         elif (
-            not self.midimix.shift
-            and event.button_id + 8 not in self.config_presets
+            not self.apc.shift
+            and str(event.button_id + 8) not in self.config_presets
         ):
             # Save config as preset
-            new_preset = self.config.create_preset(event.button_id + 8)
-            self.config_presets[event.button_id + 8] = new_preset
+            self.config.create_preset(str(event.button_id + 8))
+            self.config_presets = load_presets()
             self.midimix.recarmbuttons.set_led(event.button_id, 1)
         elif (
-            self.midimix.shift
-            and event.button_id + 8 in self.config_presets
+            self.apc.shift
+            and str(event.button_id + 8) in self.config_presets
         ):
             # Delete a preset
-            remove_preset(event.button_id + 8)
-            del self.config_presets[event.button_id + 8]
+            remove_preset(str(event.button_id + 8))
+            del self.config_presets[str(event.button_id + 8)]
             self.midimix.recarmbuttons.set_led(event.button_id, 0)
         else:
             # Do nothing no preset is set here
@@ -452,6 +452,7 @@ class Controller:
                 sleep(0.1)
                 continue
             msg = self.msg_bus.get()
+            # self.logger.warning(f"{msg}")
             if (
                 msg["kind"] not in ["m", "i", "f"]
                 or ("option" in msg and msg["option"] in options_filter)
@@ -485,7 +486,7 @@ class Controller:
                 self.config.update_channel(
                     msg["channel"], msg["function"], msg["value"]
                 )
-                if self.display_view == 0:
+                if self.display_view == 0 and not init_run:
                     self.apc.update_mix_channel(msg["channel"])
                 continue
             if (
@@ -494,7 +495,7 @@ class Controller:
                 and msg["channel"] == "mix"
             ):
                 self.config.update_master(msg["value"])
-                if self.display_view == 7:
+                if self.display_view == 7 and not init_run:
                     # NOTE: Update the master channel on apc grid
                     self.apc.update_master_channel()
                 continue
@@ -510,11 +511,16 @@ class Controller:
                 self.config.update_fx(
                     msg["channel"], msg["function"], msg["value"]
                 )
-                if self.display_view == 7 and msg["function"] == "mix":
+                if (
+                    self.display_view == 7
+                    and msg["function"] == "mix"
+                    and not init_run
+                ):
                     # just display fx_return on the grid
                     # other notifications will be displayed on
                     # the display matrix
                     self.apc.update_fxreturn_channel(int(msg["channel"]))
+                    continue
 
     def midi_keepalive(self) -> None:
         reconnect = {

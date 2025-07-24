@@ -1,6 +1,6 @@
 #!/home/dhoessl/venvs/midi2soundcraft/bin/python
 from services.controller import Controller
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, run
 from time import sleep
 from logging import (
     StreamHandler, FileHandler, Formatter,
@@ -63,7 +63,7 @@ def get_logger(name, logfile) -> Logger:
         logger.addHandler(file_handler)
     # add handlers
     logger.setLevel(INFO)
-    logger.info(f"{Fore.GREEN}Logger is setup and ready{Style.RESET_ALL}")
+    logger.info(f"{Fore.GREEN}Logger is setup and ready^")
     return logger
 
 
@@ -90,8 +90,18 @@ def get_args() -> Namespace:
 
 
 def wait_connect(skip_check: bool = False) -> None:
+    # Dirty Quickfix
+    soundcraft_network_name = run(
+        "nmcli con show | grep -i 'soundcraft' | awk -F'  ' '{ printf $1 }'",
+        shell=True, capture_output=True
+    ).stdout.decode().split("\n")[0]
+    if not soundcraft_network_name:
+        soundcraft_network_name = "soundcraft"
     check_network = Popen(
-        ["nmcli", "-f", "GENERAL.STATE", "con", "show", "soundcraft"],
+        [
+            "nmcli", "-f", "GENERAL.STATE",
+            "con", "show", f"{soundcraft_network_name}"
+        ],
         stdout=PIPE,
         stderr=PIPE
     )
@@ -104,7 +114,7 @@ def wait_connect(skip_check: bool = False) -> None:
         if skip_check:
             outputstd = b"activated"
     logger.info(
-        f"{Fore.GREEN}Connection to Soundcraft Wifi exists{Style.RESET_ALL}"
+        f"{Fore.GREEN}Connection to Soundcraft Wifi exists"
     )
     return None
 

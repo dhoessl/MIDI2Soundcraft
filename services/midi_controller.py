@@ -70,7 +70,7 @@ class APC(controllers.APCMinimkii):
         channel = str(channel)
         # Set values and request missing values from config
         self.display_channel(
-            channel - self.controller.channels_index,
+            int(channel) - self.controller.channels_index,
             self.controller.config.get_channel_value(channel, "mix"),
             "orange",
             self.controller.config.get_channel_value(channel, "mute"),
@@ -91,12 +91,11 @@ class APC(controllers.APCMinimkii):
         )
 
     def update_fxreturn_channel(self, fx: int | str) -> None:
-        fx = str(fx)
         self.display_channel(
-            fx,
-            self.controller.config.get_fx[str(fx)]["mix"],
-            self.vars.map_color(int(fx)),
-            self.controller.config.get_fx[str(fx)]["mute"]
+            int(fx),
+            self.controller.config.get_fx_value(str(fx), "mix"),
+            self.vars.map_color[int(fx)],
+            self.controller.config.get_fx_value(str(fx), "mute")
         )
 
     def set_view_button(self) -> None:
@@ -124,8 +123,19 @@ class APC(controllers.APCMinimkii):
             self.gridbuttons.set_led(int(channel), y, "off", 0)
         if float(value) == 0 and set_lower_as_zero:
             self.lowerbuttons.set_led(int(channel), 2)
-        if is_mute:
+        if int(is_mute):
             self.lowerbuttons.set_led(int(channel), 1)
+        if (
+            not int(is_mute)
+            and (
+                float(value) > 0
+                or (
+                    float(value) == 0
+                    and not set_lower_as_zero
+                )
+            )
+        ):
+            self.lowerbuttons.set_led(int(channel), 0)
 
 
 class Midimix(controllers.MIDIMix):
