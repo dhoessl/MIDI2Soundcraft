@@ -4,3 +4,4 @@ git+https://github.com/dhoessl/soundcraft_ui16
 scipy
 mido
 colorama
+pyside6

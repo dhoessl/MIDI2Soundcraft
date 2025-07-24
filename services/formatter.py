@@ -150,7 +150,6 @@ class ConfigVars:
         return (val + 1) / 8
 
 
-
 class OutputFormatter:
     def __init__(self):
         self.vars = ConfigVars()
