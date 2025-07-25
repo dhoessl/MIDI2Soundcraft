@@ -1,17 +1,28 @@
 #!/home/dhoessl/venvs/midi2soundcraft/bin/python
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QApplication, QHBoxLayout, QVBoxLayout,
+    QMainWindow, QWidget, QApplication,
+    QHBoxLayout, QVBoxLayout
 )
 from gui.slider import GroupedSliderFrame
-from gui.button import ButtonGroup
+from gui.button import (
+    ButtonGroup, ButtonMatrixFrame,
+    SideButtonFrame, MidiMixSideButtonFrame
+)
 from gui.log import LogOutput
+from gui.config import WINDOW_CONFIG
+from gui.dial import DialMatrixFrame
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setStyleSheet("background-color: #A7AFB6;")
         self.setWindowTitle("Midi and Soundcraft")
-        self.setGeometry(20, 20, 1800, 900)
+        geo = WINDOW_CONFIG["geometry"]
+        self.setGeometry(
+            geo["x"], geo["y"],
+            geo["width"], geo["height"]
+        )
 
         layout_base = QVBoxLayout()
         layout_base.setContentsMargins(0, 0, 0, 0)
@@ -37,8 +48,15 @@ class MainWindow(QMainWindow):
     def setup_apc(self) -> QVBoxLayout:
         layout = QVBoxLayout()
         layout.addStretch()
+        layout.setSpacing(6)
+        layout_matrix = QHBoxLayout()
+        widget_matrix = ButtonMatrixFrame()
+        widget_side_btns = SideButtonFrame()
+        layout_matrix.addWidget(widget_matrix)
+        layout_matrix.addWidget(widget_side_btns)
         widget_mute_shift_btns = ButtonGroup("apc_mute")
         widget_slider = GroupedSliderFrame(["Reverb", "Delay"])
+        layout.addLayout(layout_matrix)
         layout.addWidget(widget_mute_shift_btns)
         layout.addWidget(widget_slider)
         return layout
@@ -46,9 +64,15 @@ class MainWindow(QMainWindow):
     def setup_midimix(self) -> QVBoxLayout:
         layout = QVBoxLayout()
         layout.addStretch()
+        layout_matrix = QHBoxLayout()
+        widget_dials = DialMatrixFrame()
+        widget_side_btns = MidiMixSideButtonFrame()
+        layout_matrix.addWidget(widget_dials)
+        layout_matrix.addWidget(widget_side_btns)
         widget_mute_shift_btns = ButtonGroup("midimix_mute")
         widget_recarm_btns = ButtonGroup("midimix_recarm")
         widget_slider = GroupedSliderFrame(["Chorus", "Room", "BPM"])
+        layout.addLayout(layout_matrix)
         layout.addWidget(widget_mute_shift_btns)
         layout.addWidget(widget_recarm_btns)
         layout.addWidget(widget_slider)

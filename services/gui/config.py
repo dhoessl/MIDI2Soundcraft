@@ -47,5 +47,48 @@ BUTTON_GROUPS = {
         "height": 25,
         "active_color": "red",
         "shift": False
+    },
+    "midimix_side": {
+        "names": {
+            0: "X",
+            1: "Prev",
+            2: "Next"
+        }
     }
+
+}
+
+WINDOW_CONFIG = {
+    "geometry": {
+        "x": 20,
+        "y": 20,
+        "width": 1800,
+        "height": 1000
+    },
+    "title": "Midi and Soundcraft",
+    "height": {
+        "apc_matrix": 680,
+        "midimix_knobs": 600,
+        "lower_btns": 90,
+        "fader": 200,
+        "log": 150
+    }
+}
+
+SIDE_BUTTONS = {
+    0: {"name": "MIX"},
+    1: {"name": ""},
+    2: {"name": ""},
+    3: {"name": ""},
+    4: {"name": ""},
+    5: {"name": ""},
+    6: {"name": ""},
+    7: {"name": "Master\nFx ret"}
+}
+
+DIAL_EFFECT_NAMES = {
+    0: "Reverb",
+    1: "Delay",
+    2: "Chorus",
+    3: "Room"
 }

@@ -1,18 +1,14 @@
 from PySide6.QtWidgets import QFrame, QVBoxLayout
-from PySide6.QtGui import QPalette, QColor
+from .config import WINDOW_CONFIG
 
 
 class LogOutput(QFrame):
     def __init__(self):
         super().__init__()
         self.setAutoFillBackground(True)
-        self.setMinimumHeight(150)
-        self.setMaximumHeight(150)
-        new_pallete = self.palette()
-        new_pallete.setColor(
-            QPalette.ColorRole.Window, QColor("black")
-        )
-        self.setPalette(new_pallete)
+        self.setMinimumHeight(WINDOW_CONFIG["height"]["log"])
+        self.setMaximumHeight(WINDOW_CONFIG["height"]["log"])
+        self.setStyleSheet("background-color: 'black';")
         layout = QVBoxLayout()
 
         self.setLayout(layout)

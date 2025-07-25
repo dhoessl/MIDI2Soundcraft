@@ -1,22 +1,22 @@
 from PySide6.QtWidgets import QSlider, QFrame, QVBoxLayout, QHBoxLayout
 from PySide6.QtCore import Qt
 from .models import StyledLabel, StyledFrame
-from .config import SLIDER_EFFECTS
+from .config import SLIDER_EFFECTS, WINDOW_CONFIG
 
 
 class CustomSlider(QSlider):
     def __init__(self, pos=0) -> None:
         super().__init__()
         self.setTickPosition(QSlider.TickPosition.TicksBothSides)
-        self.setTickInterval(8)
+        self.setTickInterval(16)
         self.setMinimum(0)
         self.setMaximum(127)
-        self.setMaximumHeight(130)
+        # self.setMaximumHeight(130)
         self.setValue(pos)
         self.saved_value = pos
         self.setStyleSheet("""
             QSlider::handle:vertical {
-                background: ;
+                background: #CC3300;
             }
             QSlider::add-page:vertical {
                 background: #CC3300;
@@ -36,7 +36,7 @@ class SliderFrame(QFrame):
         super().__init__()
         self.setLineWidth(3)
         self.setFrameShape(QFrame.StyledPanel)
-        self.setMaximumHeight(160)
+        # self.setMaximumHeight(205)
         self.setMaximumWidth(100)
         self.id = fid
         self.name = name
@@ -67,8 +67,8 @@ class GroupedSliderFrame(StyledFrame):
     def __init__(self, effects) -> None:
         super().__init__(3)
         self.slider = []
-        self.setMaximumHeight(180)
-        self.setMinimumHeight(180)
+        self.setMaximumHeight(WINDOW_CONFIG["height"]["fader"])
+        self.setMinimumHeight(WINDOW_CONFIG["height"]["fader"])
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
