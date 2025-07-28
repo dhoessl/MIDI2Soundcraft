@@ -17,7 +17,7 @@ Raspberry Pi Zero W   : 10.10.1.10
 ![schema showing usage of MIDI Controllers](pictures/midi_schema.png)
 
 # Project schema
-![schema showing how every part is connected to one another](pictures/schema.png)
+![schema showing how every part is connected to one another](pictures/gui_schema.png)
 
 # Refs
 * [Display Library](https://github.com/dhoessl/HD44780_1620_display_matrix)
