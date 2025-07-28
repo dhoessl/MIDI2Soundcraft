@@ -1,9 +1,13 @@
-from logging import getLogger, INFO
 from .formatter import OutputFormatter, ConfigVars
+from logging import getLogger, INFO
 from os import path
 from pathlib import Path
 from json import dumps, loads
 
+MIXER_ADDRESS = "10.10.1.1"
+MIXER_PORT = 80
+APC_DISCOVER_STRING = r"^APC mini mk2.*?Contr.*?$"
+MIDIMIX_DISCOVER_STRING = r"^MIDI Mix.*?$"
 
 MASTER_LOCK = [(4, 0), (5, 0), (6, 0), (6, 7)]
 PRESET_FILE = path.expanduser("~/.config/midi2soundcraft_presets.json")

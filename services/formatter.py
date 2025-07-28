@@ -87,6 +87,7 @@ class ConfigVars:
             interp1d([.8, .9], [630, 794]),
             interp1d([.9, 1], [794, 1000]),
         ]
+        self.soundcraft127 = interp1d([0, 1], [0, 127])
         # Reverb (0) and Room (3) use the same parnames
         self.map_parname = {
             0: {

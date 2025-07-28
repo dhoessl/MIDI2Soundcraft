@@ -5,29 +5,43 @@ from .config import DIAL_EFFECT_NAMES, WINDOW_CONFIG
 
 
 class CustomDial(QDial):
-    def __init__(self, dial_id, value=0, vmin=0, vmax=127) -> None:
+    def __init__(
+        self, dial_id: str | int,
+        value: int = 0, vmin: int = 0, vmax: int = 127
+    ) -> None:
         super().__init__()
         self.id = dial_id
+        self.saved_value = value
+        self._set_style(value, vmin, vmax)
+
+    def _set_style(self, value: int, vmin: int, vmax: int) -> None:
         self.setMinimum(vmin)
         self.setMaximum(vmax)
         self.setValue(value)
-        self.saved_value = value
 
-    def change_value(self, value) -> None:
-        self.setValue(value)
+    def change_value(self, value: int) -> None:
         self.saved_value = value
+        self.reset_value()
 
     def reset_value(self) -> None:
         self.setValue(self.saved_value)
 
 
 class DialFrame(QFrame):
-    def __init__(self, dial_id, value=0, value_text="None", name="Dial"):
+    def __init__(
+        self, dial_id: str | int,
+        value: int = 0,
+        value_text: str = "NaN",
+        name: str = "Dial"
+    ) -> None:
         super().__init__()
         self.dial = CustomDial(dial_id, value)
         self.dial.valueChanged.connect(self.dial.reset_value)
         self.label_name = StyledLabel(name)
         self.label_value = StyledLabel(value_text)
+        self._set_style()
+
+    def _set_style(self) -> None:
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 3, 0, 3)
         layout.setSpacing(5)
@@ -39,71 +53,115 @@ class DialFrame(QFrame):
         layout.setAlignment(self.label_value, Qt.AlignHCenter)
         self.setLayout(layout)
 
-    def change_value(self, value) -> None:
-        self.dial.setValue(value)
-
-    def get_dial_id(self) -> str | int:
-        return self.dial.id
+    def change_value(self, dial_id: int, value: int, label: str) -> bool:
+        if self.dial.id == dial_id:
+            self.dial.change_value(value)
+            self.label_value.setText(f"{label}")
+            return True
+        return False
 
 
 class ChannelDialFrame(StyledFrame):
-    def __init__(self, channel_id) -> None:
+    def __init__(self, channel_id: int) -> None:
         super().__init__(3)
         self.id = channel_id
         # 0: Reverb, 1: Delay, 2: Chorus, 3: Room
         self.dials = []
-        self.label = StyledLabel(f"Channel {self.id}", 14, 20)
-        layout_outer = QVBoxLayout()
-        layout_outer.addWidget(self.label)
-        layout_outer.setAlignment(self.label, Qt.AlignHCenter)
-        layout = QHBoxLayout()
-        layout.setContentsMargins(5, 0, 5, 0)
-        layout.setSpacing(3)
+        self.label = StyledLabel(f"Channel {self.id + 1}", 14, 20)
         for x in range(4):
-            widget_dial = DialFrame(x, name=DIAL_EFFECT_NAMES[x])
-            self.dials.append(widget_dial)
-            layout.addWidget(widget_dial)
-        layout_outer.addLayout(layout)
-        self.setLayout(layout_outer)
+            self.dials.append(DialFrame(x, name=DIAL_EFFECT_NAMES[x]))
+        self._set_style()
 
-    def change_value(self, dial_id, value) -> None:
+    def _set_style(self) -> None:
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        layout.setAlignment(self.label, Qt.AlignHCenter)
+        layout_dials = QHBoxLayout()
+        layout_dials.setContentsMargins(5, 0, 5, 0)
+        layout_dials.setSpacing(3)
+        for widget_dial in self.dials:
+            layout_dials.addWidget(widget_dial)
+        layout.addLayout(layout_dials)
+        self.setLayout(layout)
+
+    def change_value(
+        self,
+        channel_id: int, dial_id: int,
+        value: int, label: str
+    ) -> bool:
+        if not channel_id == self.id:
+            return False
         for dial in self.dials:
-            if dial.get_dial_id() == dial_id:
-                dial.change_value(value)
+            if dial.change_value(dial_id, value, label):
+                return True
+        return False
 
-    def change_channel(self, channel_id) -> None:
-        self.id = channel_id
-        self.label.setText(f"Channel {self.id}")
+    def change_channel(self, settings: dict) -> None:
+        self.id = self.id - 6 if self.id > 5 else self.id + 6
+        self.label.setText(f"Channel {self.id + 1}")
+        for dial_id in settings[self.id]:
+            self.change_value(
+                self.id, dial_id,
+                settings[self.id][dial_id]["value"],
+                settings[self.id][dial_id]["label"]
+            )
+
+
+class DualChannelDialFrame(QFrame):
+    def __init__(self, start_channel_id: int) -> None:
+        super().__init__()
+        self.channels = []
+        for x in range(2):
+            self.channels.append(ChannelDialFrame(start_channel_id + x))
+        self._set_style()
+
+    def _set_style(self) -> None:
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        for widget in self.channels:
+            layout.addWidget(widget)
+        self.setLayout(layout)
+
+    def change_value(self, dial_id: int, value: int, label: str) -> bool:
+        for channel in self.channels:
+            if channel.change_value(dial_id, value, label):
+                return True
+        return False
+
+    def change_channels(self, settings: dict) -> None:
+        for channel in self.channels:
+            channel.change_channels(settings)
 
 
 class DialMatrixFrame(QFrame):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.channels = []
+        self.frames = []
+        for frame_id in range(3):
+            self.frames.append(DualChannelDialFrame(frame_id))
+        self._set_style()
+
+    def _set_style(self) -> None:
         self.setMaximumHeight(WINDOW_CONFIG["height"]["midimix_knobs"])
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
         layout.addStretch()
-        for y in range(3):
-            layout_dials = self.create_dial_hbox(y)
-            layout.addLayout(layout_dials)
+        for frame in self.frames:
+            layout.addWidget(frame)
         self.setLayout(layout)
 
-    def create_dial_hbox(self, counter) -> QHBoxLayout:
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
-        for x in range(2):
-            channel_dials = ChannelDialFrame((counter * 2) + x)
-            layout.addWidget(channel_dials)
-            self.channels.append(channel_dials)
-        return layout
+    def change_value(
+        self,
+        channel_id: int, dial_id: int, value: int,
+        label: str
+    ) -> bool:
+        for frame in self.frames:
+            if frame.change_value(channel_id, dial_id, value, label):
+                return True
+        return False
 
-    def change_value(self, channel_id, dial_id, value) -> None:
-        for channel in self.channels:
-            if channel.id == channel_id:
-                channel.change_value(dial_id, value)
-
-    def change_channels(self) -> None:
-        pass
+    def change_channels(self, settings: dict) -> None:
+        for frame in self.frames:
+            frame.change_channels(settings)

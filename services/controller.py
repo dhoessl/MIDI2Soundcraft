@@ -1,14 +1,14 @@
 from soundcraft_ui16 import MixerListener, MixerSender
-# from lcd_i2c_display_matrix.lcd_websocket_sender import MatrixCommandSender
 from .midi_controller import APC, Midimix, get_midi_string
 from .config import Config, MASTER_LOCK, load_presets, remove_preset
-from .formatter import ConfigVars
+from .formatter import ConfigVars, OutputFormatter
 from queue import Queue
 from threading import Thread, Event
 from time import sleep
 from re import match
 from logging import getLogger, INFO
 from colorama import Fore
+from .wifi import wait_connect
 
 
 class Controller:
@@ -23,7 +23,7 @@ class Controller:
 
     def __init__(
             self,
-            mixer_addr, lcd_addr, args,
+            mixer_addr, args,
             logger: str = "Mixer Controller"
     ) -> None:
         """ Brain of the connection between APC mini mk2 and Soundcraft UI16
@@ -33,9 +33,9 @@ class Controller:
         self.logger = getLogger(logger)
         if self.logger.level < 20:
             self.logger.setLevel(INFO)
+        wait_connect(args.skip_network_check, self.logger.name)
         self.args = args
         self.mixer_addr = mixer_addr
-        self.lcd_addr = lcd_addr
         self.apc = None
         self.midi_mix = None
         self.apc_discovery_string = r"^APC mini mk2.*?Contr.*?$"
@@ -81,9 +81,7 @@ class Controller:
         self.config = Config(logger_name=self.logger.name)
         self.config_presets = load_presets()
         self.vars = ConfigVars()
-        # self.channels = {}
-        # self.master = 0
-        # self.fx = {}
+        self.formatter = OutputFormatter()
 
         # # APC vars
         # Some vars to display the correct
@@ -126,7 +124,10 @@ class Controller:
             sleep(0.1)
         self.midi_keepalive_thread.start()
         # Start Update Thread to listen for config changes
-        self.midi_keepalive_thread.join()
+        if self.args.gui:
+            self.gui_app.exec()
+        else:
+            self.midi_keepalive_thread.join()
 
     def apc_grid_event(self, event) -> None:
         if self.display_view not in [0, 7]:
@@ -225,12 +226,14 @@ class Controller:
                 # NOTE: Move channels one to left (-1)
                 self.channels_index -= 1
                 self.apc.display_mix_channels()
+                self.gui.update_mix_channel(False, self.channels_index)
                 return
             if (event.button_id == 7
                     and self.check_index(self.channels_index + 1, 0, 4)):
                 # NOTE: Move channels one to the right (+1)
                 self.channels_index += 1
                 self.apc.display_mix_channels()
+                self.gui.update_mix_channel(True, self.channels_index)
                 return
         if (self.apc.shift and self.display_view == 7
                 and self.apc_last_used_channel is not None):
@@ -317,6 +320,11 @@ class Controller:
                     self.vars.midi_to_soundcraft(event.value),
                     "f"
                 )
+
+    def apc_shift_event(self, event) -> None:
+        if not self.gui:
+            return None
+        self.gui.set_shift_button(event.state)
 
     def midi_mix_knob_event(self, event) -> None:
         current_knob = (event.x, event.y)
@@ -426,9 +434,11 @@ class Controller:
         # NOTE: Move Effect Channels for the Knobs
         if event.state and event.button_id and self.channelfxsend_index:
             self.channelfxsend_index = 0
+            self.gui.update_dial_channels()
         if (event.state and not event.button_id
                 and not self.channelfxsend_index):
             self.channelfxsend_index = 1
+            self.gui.update_dial_channels()
 
     def check_index(self, index, min, max) -> bool:
         """ Make sure the index vars do not reach out of bounce """
@@ -452,7 +462,6 @@ class Controller:
                 sleep(0.1)
                 continue
             msg = self.msg_bus.get()
-            # self.logger.warning(f"{msg}")
             if (
                 msg["kind"] not in ["m", "i", "f"]
                 or ("option" in msg and msg["option"] in options_filter)
@@ -469,14 +478,19 @@ class Controller:
                 # Update BPM directly because its a global value
                 if msg["function"] == "bpm":
                     self.config.update_bpm(msg["value"])
+                    if self.gui:
+                        self.gui.update_bpm()
                     continue
                 # Update Fx value for a specific Channel
                 self.config.update_channel_fx(
                     msg["channel"], msg["option_channel"],
                     msg["function"], msg["value"]
                 )
-                continue
-            if (
+                if self.gui:
+                    self.gui.update_channel_fx(
+                        msg["channel"], msg["option_channel"], msg["function"]
+                    )
+            elif (
                 msg["kind"] == "i"
                 and "channel" in msg
                 and "function" in msg
@@ -486,20 +500,23 @@ class Controller:
                 self.config.update_channel(
                     msg["channel"], msg["function"], msg["value"]
                 )
-                if self.display_view == 0 and not init_run:
-                    self.apc.update_mix_channel(msg["channel"])
-                continue
-            if (
+                if self.display_view == 0:
+                    if not init_run:
+                        self.apc.update_mix_channel(msg["channel"])
+                    if self.gui:
+                        self.gui.update_apc_mix_channel(msg["channel"])
+            elif (
                 msg["kind"] == "m"
                 and "channel" in msg
                 and msg["channel"] == "mix"
             ):
                 self.config.update_master(msg["value"])
-                if self.display_view == 7 and not init_run:
-                    # NOTE: Update the master channel on apc grid
-                    self.apc.update_master_channel()
-                continue
-            if (
+                if self.display_view == 7:
+                    if not init_run:
+                        self.apc.update_master_channel()
+                    if self.gui:
+                        self.gui.update_master()
+            elif (
                 msg["kind"] == "f"
                 and "function" in msg
                 and (
@@ -511,16 +528,21 @@ class Controller:
                 self.config.update_fx(
                     msg["channel"], msg["function"], msg["value"]
                 )
-                if (
-                    self.display_view == 7
-                    and msg["function"] == "mix"
-                    and not init_run
-                ):
+                if self.display_view == 7 and msg["function"] == "mix":
                     # just display fx_return on the grid
-                    # other notifications will be displayed on
-                    # the display matrix
-                    self.apc.update_fxreturn_channel(int(msg["channel"]))
+                    if not init_run:
+                        self.apc.update_fxreturn_channel(int(msg["channel"]))
+                    if self.gui:
+                        self.gui.update_fx_return(msg["channel"])
                     continue
+                elif "par" in msg["function"]:
+                    # All other params displayed here
+                    if self.gui:
+                        self.gui.update_fx_params(
+                            msg["channel"], msg["function"]
+                        )
+            else:
+                self.logger.warning(f"{msg}")
 
     def midi_keepalive(self) -> None:
         reconnect = {

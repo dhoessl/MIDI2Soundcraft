@@ -51,6 +51,7 @@ class APC(controllers.APCMinimkii):
             self.controller.apc_fader_event(event)
         elif isinstance(event, self.ShiftButton):
             self.shift = True if event.state else False
+            self.controller.apc_shift_event(event)
 
     def is_alive(self) -> bool:
         return True if self.midi_string in get_output_names() else False

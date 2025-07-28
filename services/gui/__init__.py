@@ -12,4 +12,5 @@ from .dial import (
 )
 from .log import LogOutput
 from .models import StyledLabel, StyledFrame
-from .slider import CustomSlider, SliderFrame, GroupedSliderFrame
+from .slider import CustomSlider, SliderFrame, SliderFrameGroup, FullSliderFrame
+from .base import APC, MidiMix, BaseFrame

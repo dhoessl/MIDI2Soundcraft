@@ -10,17 +10,17 @@ SLIDER_EFFECTS = {
         "color": "#FDAA48"
     },
     "Chorus": {
-        "identifier_start": 9,
+        "identifier_start": 0,
         "effects": ["Detune", "Density", "LPF"],
         "color": "#FF66FF"
     },
     "Room": {
-        "identifier_start": 12,
+        "identifier_start": 3,
         "effects": ["Time", "HF", "Bass Gain", "LPF", "HPF"],
         "color": "#66CC33"
     },
     "BPM": {
-        "identifier_start": 17,
+        "identifier_start": 8,
         "effects": ["BPM"],
         "color": "#ADD8E6"
     }
@@ -32,6 +32,10 @@ BUTTON_GROUPS = {
         "text": "Mute",
         "height": 50,
         "active_color": "red",
+        "shift_text_list": [
+            "", "", "", "",
+            "Mix\n+.002", "Mix\n-.002", "CH -1", "CH +1"
+        ],
         "shift": True
     },
     "midimix_mute": {
@@ -63,7 +67,7 @@ WINDOW_CONFIG = {
         "x": 20,
         "y": 20,
         "width": 1800,
-        "height": 1000
+        "height": 1080
     },
     "title": "Midi and Soundcraft",
     "height": {
