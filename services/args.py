@@ -24,10 +24,5 @@ def get_args() -> Namespace:
         action="store_true",
         help="Output Log with colors to stdout"
     )
-    parser.add_argument(
-        "--gui",
-        action="store_true",
-        help="create a gui to display informatiuon"
-    )
 
     return parser.parse_args()

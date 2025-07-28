@@ -46,11 +46,11 @@ class ThreadController:
         )
         self.apc_keepalive_thread = ApcControllerThread(
             apc_queue, gui_queue, midimix_queue,
-            self.sender, config, self.logger.name
+            self.sender, config, args, self.logger.name
         )
         self.midimix_keepalive_thread = MidimixControllerThread(
             midimix_queue, gui_queue, apc_queue,
-            self.sender, config, self.logger.name
+            self.sender, config, args, self.logger.name
         )
         self.gui_controller = GuiController(
             gui, config, gui_queue, self.logger.name
@@ -120,7 +120,7 @@ class ThreadController:
         )
 
     def _check_network_connection(self) -> None:
-        """ Check if connected to soundcraft wifi i
+        """ Check if connected to soundcraft wifi
             TODO: Improve since its blocking the programm
         """
         wait_connect(

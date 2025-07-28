@@ -6,6 +6,7 @@ from re import match
 from logging import getLogger
 from threading import Thread, Event
 from queue import Queue
+from argparse import Namespace
 from services.config import APC_DISCOVER_STRING, Config, MASTER_LOCK
 from services.formatter import ConfigVars
 
@@ -18,9 +19,11 @@ class ApcControllerThread:
         midimix_queue: Queue,
         sender: MixerSender,
         config: Config,
+        args: Namespace,
         logger_name: str = "APC"
     ) -> None:
         self.logger = getLogger(logger_name)
+        self.args = args
         self.midi_string = self.get_midi_string(APC_DISCOVER_STRING)
         self.sender = sender
         self.apc_queue = apc_queue
@@ -62,7 +65,7 @@ class ApcControllerThread:
                     self.apc = APC(
                         self.midi_string, self.apc_queue,
                         self.gui_queue, self.sender,
-                        self.config, self.logger.name
+                        self.config, self.args, self.logger.name
                     )
                     # Drain Queue and send init request
                     while self.apc_queue.qsize() > 0:
@@ -91,9 +94,11 @@ class APC(controllers.APCMinimkii):
         gui_queue: Queue,
         sender: MixerSender,
         config: Config,
+        args: Namespace,
         logger_name: str = "APC"
     ) -> None:
         super().__init__(midi_string, midi_string)
+        self.args = args
         self.midi_string = midi_string
         self.logger = getLogger(logger_name)
         self.sender = sender
@@ -134,12 +139,14 @@ class APC(controllers.APCMinimkii):
             elif msg["key"] == "shift":
                 self.midimix_shift = msg["state"]
             else:
-                self.logger(f"{self.name} cant process \n{msg}")
+                if self.args.verbose:
+                    self.logger.warning(f"{self.name} cant process \n{msg}")
 
     def join_thread(self) -> None:
         self.update_thread.join()
 
     def terminate(self) -> None:
+        self.logger.warning(f"{self.name} => stopping")
         self.exit_flag.set()
         self.join_thread()
 

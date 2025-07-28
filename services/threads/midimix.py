@@ -6,6 +6,7 @@ from re import match
 from logging import getLogger
 from threading import Thread, Event
 from queue import Queue
+from argparse import Namespace
 from services.config import (
     MIDIMIX_DISCOVER_STRING, Config, load_presets, remove_preset
 )
@@ -20,9 +21,11 @@ class MidimixControllerThread:
         apc_queue: Queue,
         sender: MixerSender,
         config: Config,
+        args: Namespace,
         logger_name: str = "MidiMix"
     ) -> None:
         self.logger = getLogger(logger_name)
+        self.args = args
         self.midi_string = self.get_midi_string(MIDIMIX_DISCOVER_STRING)
         self.sender = sender
         self.midimix_queue = midimix_queue
@@ -64,7 +67,7 @@ class MidimixControllerThread:
                     self.midimix = Midimix(
                         self.midi_string, self.midimix_queue,
                         self.gui_queue, self.sender,
-                        self.config, self.logger.name
+                        self.config, self.args, self.logger.name
                     )
                     # Drain Queue and send init request
                     while self.midimix_queue.qsize() > 0:
@@ -102,10 +105,12 @@ class Midimix(controllers.MIDIMix):
         gui_queue: Queue,
         sender: MixerSender,
         config: Config,
+        args: Namespace,
         logger_name: str = "Midimix"
     ) -> None:
         super().__init__(midi_string, midi_string)
         self.midi_string = midi_string
+        self.args = args
         self.logger = getLogger(logger_name)
         self.sender = sender
         self.config = config
@@ -135,7 +140,8 @@ class Midimix(controllers.MIDIMix):
             elif msg["key"] == "shift":
                 self.apc_shift = msg["state"]
             else:
-                self.logger(f"{self.name} cant process \n{msg}")
+                if self.args.verbose:
+                    self.logger.warning(f"{self.name} cant process \n{msg}")
 
     def join_thread(self) -> None:
         self.update_thread.join()
