@@ -123,15 +123,18 @@ class DualChannelDialFrame(QFrame):
             layout.addWidget(widget)
         self.setLayout(layout)
 
-    def change_value(self, dial_id: int, value: int, label: str) -> bool:
+    def change_value(
+        self, channel_id: int, dial_id: int,
+        value: int, label: str
+    ) -> bool:
         for channel in self.channels:
-            if channel.change_value(dial_id, value, label):
+            if channel.change_value(channel_id, dial_id, value, label):
                 return True
         return False
 
     def change_channels(self, settings: dict) -> None:
         for channel in self.channels:
-            channel.change_channels(settings)
+            channel.change_channel(settings)
 
 
 class DialMatrixFrame(QFrame):
@@ -139,7 +142,7 @@ class DialMatrixFrame(QFrame):
         super().__init__()
         self.frames = []
         for frame_id in range(3):
-            self.frames.append(DualChannelDialFrame(frame_id))
+            self.frames.append(DualChannelDialFrame(frame_id * 2))
         self._set_style()
 
     def _set_style(self) -> None:

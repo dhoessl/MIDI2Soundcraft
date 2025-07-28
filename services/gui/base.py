@@ -77,7 +77,10 @@ class MidiMix(QFrame):
     def change_dial_value(
         self, channel_id: int, dial_id: int, value: int, label: str
     ) -> None:
-        self.widget_dials.change_value(channel_id, dial_id, value, label)
+        if not self.widget_dials.change_value(
+                channel_id, dial_id, value, label
+        ):
+            return False
 
     def change_dial_channels(self, settings: dict) -> None:
         self.widget_dials.change_channels(settings)

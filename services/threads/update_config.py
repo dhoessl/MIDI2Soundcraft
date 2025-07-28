@@ -22,7 +22,7 @@ class UpdateConfigThread:
         self.logger = getLogger(logger_name)
         self.apc_queue = apc_queue
         self.midimix_queue = midimix_queue
-        self.qui_queue = gui_queue
+        self.gui_queue = gui_queue
         self.thread = Thread(
             target=self._thread, args=(update_queue, config)
         )
@@ -45,19 +45,15 @@ class UpdateConfigThread:
                 and "option" in msg
                 and msg["option"] == "fx"
             ):
-                if msg["function"] == "bpm":
-                    config.update_bpm(msg["value"])
-                    self.notify_update("bpm")
-                    continue
                 config.update_channel_fx(
-                    msg["channel"], msg["options_channel"],
+                    msg["channel"], msg["option_channel"],
                     msg["function"], msg["value"]
                 )
                 self.notify_update(
                     "channel_fx",
                     {
                         "channel": msg["channel"],
-                        "fx": msg["options_channel"],
+                        "fx": msg["option_channel"],
                         "function": msg["function"]
                     }
                 )
@@ -92,8 +88,12 @@ class UpdateConfigThread:
                     or match(r"^par\d$", msg["function"])
                 )
             ):
+                if msg["function"] == "bpm":
+                    config.update_bpm(msg["value"])
+                    self.notify_update("bpm")
+                    continue
                 config.update_fx(
-                    msg["channel"], msg["functions"], msg["value"]
+                    msg["channel"], msg["function"], msg["value"]
                 )
                 self.notify_update(
                     "fx",

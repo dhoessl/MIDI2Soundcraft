@@ -222,7 +222,6 @@ class OutputFormatter:
                 else:
                     return f"{int(self.vars.time_delay[sel](fx_val))} ms"
             elif par == "par2":
-                print(f"{fx1par1}")
                 if fx1par1 > 0:
                     return "TIME MODE"
                 else:

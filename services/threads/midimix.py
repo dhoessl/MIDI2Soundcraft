@@ -30,6 +30,7 @@ class MidimixControllerThread:
         self.sender = sender
         self.midimix_queue = midimix_queue
         self.gui_queue = gui_queue
+        self.apc_queue = apc_queue
         self.config = config
         self.midimix = None
         self.keepalive_thread = Thread(
@@ -61,12 +62,10 @@ class MidimixControllerThread:
                     and self.midimix.is_alive()
                 )
             ):
-                if self.midimix:
-                    self.midimix.terminate()
                 try:
                     self.midimix = Midimix(
                         self.midi_string, self.midimix_queue,
-                        self.gui_queue, self.sender,
+                        self.gui_queue, self.apc_queue, self.sender,
                         self.config, self.args, self.logger.name
                     )
                     # Drain Queue and send init request
@@ -74,6 +73,7 @@ class MidimixControllerThread:
                         self.midimix_queue.get()
                     self.midimix_queue.put({"key": "init"})
                     self.logger.warning(f"{self.midimix.name} => created!")
+                    self.midimix.start()
                 except:  # noqa: E722
                     self.logger.critical("Midimix => failed!")
 
@@ -81,7 +81,8 @@ class MidimixControllerThread:
         self.keepalive_thread.start()
 
     def join(self) -> None:
-        self.keepalive_thread.join()
+        if self.keepalive_thread.is_alive():
+            self.keepalive_thread.join()
 
     def terminate(self) -> None:
         self.exit_flag.set()
@@ -103,6 +104,7 @@ class Midimix(controllers.MIDIMix):
         midi_string: str,
         midimix_queue: Queue,
         gui_queue: Queue,
+        apc_queue: Queue,
         sender: MixerSender,
         config: Config,
         args: Namespace,
@@ -118,6 +120,7 @@ class Midimix(controllers.MIDIMix):
         self.vars = ConfigVars()
         self.midimix_queue = midimix_queue
         self.gui_queue = gui_queue
+        self.apc_queue = apc_queue
         self.event_dispatch = self.on_event
         self.ready_dispatch = self.on_ready
         self.ready = False
@@ -130,11 +133,11 @@ class Midimix(controllers.MIDIMix):
         )
         self.exit_flag = Event()
 
-    def _update_therad(self) -> None:
+    def _update_thread(self) -> None:
         while not self.exit_flag.is_set():
             if self.midimix_queue.qsize() == 0:
                 continue
-            msg = self.apc_queue.get()
+            msg = self.midimix_queue.get()
             if msg["key"] == "init":
                 self.display_presets()
             elif msg["key"] == "shift":
@@ -150,9 +153,13 @@ class Midimix(controllers.MIDIMix):
         self.exit_flag.set()
         self.join_thread()
 
+    def start(self) -> None:
+        self.logger.warning(f"Midimix => polling start! {self.ready}")
+        self.reset()
+        self.update_thread.start()
+
     def on_ready(self) -> None:
         self.ready = True
-        self.update_thread.start()
         self.logger.warning(f"{self.name} is ready!")
 
     def on_event(self, event) -> None:
@@ -163,6 +170,7 @@ class Midimix(controllers.MIDIMix):
                     channel = self.KNOB_MAPPING.index(check_set)
                     break
             channel += self.channelfxsend_index * 6
+            self.logger.critical("Change knob")
             self.sender.fx(
                 channel,
                 self.vars.midi_to_soundcraft(event.value),
@@ -211,7 +219,7 @@ class Midimix(controllers.MIDIMix):
                 # Save config as preset
                 self.config.create_preset(str(event.button_id))
                 self.config_presets = load_presets()
-                self.midimix.mutebuttons.set_led(event.button_id, 1)
+                self.mutebuttons.set_led(event.button_id, 1)
             elif (
                 (self.shift or self.apc_shift)
                 and str(event.button_id) in self.config_presets
@@ -219,7 +227,7 @@ class Midimix(controllers.MIDIMix):
                 # Delete a preset
                 remove_preset(str(event.button_id))
                 self.config_presets = load_presets()
-                self.midimix.mutebuttons.set_led(event.button_id, 0)
+                self.mutebuttons.set_led(event.button_id, 0)
             else:
                 # Do nothing no preset is set here
                 pass
@@ -227,7 +235,7 @@ class Midimix(controllers.MIDIMix):
             if not event.state:
                 return None
             if (
-                not self.shift and not self.midimix_shift
+                not self.shift and not self.apc_shift
                 and str(event.button_id + 8) in self.config_presets
             ):
                 # Load Config
@@ -242,13 +250,13 @@ class Midimix(controllers.MIDIMix):
                             float(effects[fx][option])
                         )
             elif (
-                not self.shift and not self.midimix_shift
+                not self.shift and not self.apc_shift
                 and str(event.button_id + 8) not in self.config_presets
             ):
                 # Save config as preset
                 self.config.create_preset(str(event.button_id + 8))
                 self.config_presets = load_presets()
-                self.midimix.recarmbuttons.set_led(event.button_id, 1)
+                self.recarmbuttons.set_led(event.button_id, 1)
             elif (
                 (self.shift or self.apc_shift)
                 and str(event.button_id + 8) in self.config_presets
@@ -256,7 +264,7 @@ class Midimix(controllers.MIDIMix):
                 # Delete a preset
                 remove_preset(str(event.button_id + 8))
                 self.config_presets = load_presets()
-                self.midimix.recarmbuttons.set_led(event.button_id, 0)
+                self.recarmbuttons.set_led(event.button_id, 0)
             else:
                 # Do nothing no preset is set here
                 pass
@@ -275,10 +283,10 @@ class Midimix(controllers.MIDIMix):
 
     def display_presets(self) -> None:
         for preset in self.config_presets:
-            if preset < 8:
-                self.midimix.mutebuttons.set_led(int(preset), 1)
+            if int(preset) < 8:
+                self.mutebuttons.set_led(int(preset), 1)
             else:
-                self.midimix.recarmbuttons.set_led(int(preset) - 8, 1)
+                self.recarmbuttons.set_led(int(preset) - 8, 1)
 
     def is_alive(self) -> bool:
         return True if self.midi_string in get_output_names() else False

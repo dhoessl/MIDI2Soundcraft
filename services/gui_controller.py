@@ -44,13 +44,19 @@ class GuiController:
                     msg["data"]["function"]
                 )
             elif msg["key"] == "fxmix":
-                self.update_fx_return(msg["channel"])
+                self.update_fx_return(msg["data"]["channel"])
             elif msg["key"] == "fxpar":
-                self.update_fx_params(msg["channel"], msg["function"])
+                self.update_fx_params(
+                    msg["data"]["channel"],
+                    msg["data"]["function"]
+                )
             elif msg["key"] == "shift":
                 self.set_shift_button(msg["state"])
             elif msg["key"] == "channel_move":
-                self.update_mix_channels(msg["inc"], msg["index"])
+                self.update_mix_channels(
+                    msg["data"]["inc"],
+                    msg["data"]["index"]
+                )
             elif msg["key"] == "fx_move":
                 self.update_dial_channels()
 
@@ -83,9 +89,12 @@ class GuiController:
         fx: str | int,
         key: str | int
     ) -> None:
+        if key != "value":
+            return None
         value = float(self.config.get_channel_fx_value(channel, fx, key))
         self.gui.change_dial_value(
-            int(channel), int(fx), value,
+            int(channel), int(fx),
+            int(round(float(self.vars.soundcraft127(value)), 0)),
             self.formatter.mix(value)
         )
 
@@ -113,9 +122,18 @@ class GuiController:
             delay_time = float(self.config.get_fx_value("1", "par1"))
         except:  # noqa: E722
             delay_time = 1
-        value = float(self.config.get_fx_value(channel, key))
-        value_slider = round(float(self.vars.soundcraft127(value)), 0)
-        value_text = self.formatter.fx_parval(channel, key, value, delay_time)
+        try:
+            value = float(self.config.get_fx_value(channel, key))
+            value_slider = round(float(self.vars.soundcraft127(value)), 0)
+            value_text = self.formatter.fx_parval(
+                channel, key, value, delay_time
+            )
+        except TypeError:
+            # Update Thread is sending notifications for
+            # non existing parameters since they just get
+            # filtered on config level
+            # TODO: create filter for notifications too
+            return None
         if int(channel) == 0:
             self.gui.change_apc_slider_value(
                 int(key[-1:]) - 1,
@@ -140,7 +158,9 @@ class GuiController:
     def update_mix_channels(self, increment: bool, index: int) -> None:
         data = {}
         for channel in range(12):
-            value_mix = float(self.config.get_channel_value(channel, "mix"))
+            value_mix = float(
+                self.config.get_channel_value(str(channel), "mix")
+            )
             data[channel] = {
                 "btns": self.vars.soundcraft_to_midi(value_mix),
                 "value": self.formatter.mix(value_mix),
@@ -160,7 +180,7 @@ class GuiController:
             data[channel] = {}
             for fx in range(4):
                 value = float(self.config.get_channel_fx_value(
-                    str(channel), str(fx), "mix"
+                    str(channel), str(fx), "value"
                 ))
                 data[channel][fx] = {
                     "value": round(float(self.vars.soundcraft127(value)), 0),

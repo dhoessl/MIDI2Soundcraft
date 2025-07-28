@@ -103,10 +103,10 @@ class ButtonGroup(QFrame):
     def set_button(self, button_id: int, state: bool) -> None:
         for button in self.buttons:
             if state and button.id == button_id:
-                button.set_active(button_id)
+                button.set_active()
                 return True
             elif not state and button.id == button_id:
-                button.set_inactive(button_id)
+                button.set_inactive()
                 return True
             else:
                 continue
@@ -147,19 +147,28 @@ class MatrixButtonGroup(StyledFrame):
             btn.released.connect(btn.set_inactive)
             self.buttons.append(btn)
 
-    def set_value(self, btns: int, value_text: str) -> None:
+    def set_value(
+        self, channel: int,
+        btns: int, value_text: str
+    ) -> None:
+        if self.channel_id != channel:
+            return False
         for button in self.buttons:
             if button.id in list(range(btns)):
                 button.set_active()
             else:
                 button.set_inactive()
         self.label_value.setText(value_text)
+        return True
 
     def switch_channel(self, inc: bool, settings: dict) -> None:
         self.channel_id += 1 if inc else -1
         self.label_name.setText(f"Channel {self.channel_id + 1}")
-        channel_settings = settings[self.button_id]
-        self.set_value(channel_settings["btns"], channel_settings["value"])
+        channel_settings = settings[self.channel_id]
+        self.set_value(
+            self.channel_id, channel_settings["btns"],
+            channel_settings["value"]
+        )
 
 
 class ButtonMatrixFrame(QFrame):
@@ -181,11 +190,10 @@ class ButtonMatrixFrame(QFrame):
         self.setLayout(layout)
 
     def set_value(self, channel: int, btns: int, value_text: str) -> None:
-        for channel in self.vertical_groups:
-            if channel.channel_id != channel:
-                continue
-            channel.set_value(btns, value_text)
-            return None
+        for group in self.vertical_groups:
+            if group.set_value(channel, btns, value_text):
+                return True
+        return False
 
     def switch_channels(self, inc: bool, settings: dict) -> None:
         for channel in self.vertical_groups:

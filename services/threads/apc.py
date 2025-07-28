@@ -28,6 +28,7 @@ class ApcControllerThread:
         self.sender = sender
         self.apc_queue = apc_queue
         self.gui_queue = gui_queue
+        self.midimix_queue = midimix_queue
         self.config = config
         self.apc = None
         self.keepalive_thread = Thread(
@@ -59,12 +60,10 @@ class ApcControllerThread:
                     and self.apc.is_alive()
                 )
             ):
-                if self.apc:
-                    self.apc.terminate()
                 try:
                     self.apc = APC(
                         self.midi_string, self.apc_queue,
-                        self.gui_queue, self.sender,
+                        self.gui_queue, self.midimix_queue, self.sender,
                         self.config, self.args, self.logger.name
                     )
                     # Drain Queue and send init request
@@ -72,6 +71,7 @@ class ApcControllerThread:
                         self.apc_queue.get()
                     self.apc_queue.put({"key": "init"})
                     self.logger.warning(f"{self.apc.name} => created!")
+                    self.apc.start()
                 except:  # noqa: E722
                     self.logger.critical("APC => failed!")
 
@@ -92,6 +92,7 @@ class APC(controllers.APCMinimkii):
         midi_string: str,
         apc_queue: Queue,
         gui_queue: Queue,
+        midimix_queue: Queue,
         sender: MixerSender,
         config: Config,
         args: Namespace,
@@ -106,6 +107,7 @@ class APC(controllers.APCMinimkii):
         self.vars = ConfigVars()
         self.apc_queue = apc_queue
         self.gui_queue = gui_queue
+        self.midimix_queue = midimix_queue
         self.ready_dispatch = self.on_ready
         self.event_dispatch = self.on_event
         self.ready = False
@@ -123,16 +125,23 @@ class APC(controllers.APCMinimkii):
         )
         self.exit_flag = Event()
 
-    def _update_therad(self) -> None:
+    def _update_thread(self) -> None:
         while not self.exit_flag.is_set():
             if self.apc_queue.qsize() == 0:
                 continue
             msg = self.apc_queue.get()
+            self.logger.info(f"APC => {msg}")
             if msg["key"] == "channel":
+                if self.display_view != 0:
+                    continue
                 self.update_mix_channel(msg["data"]["channel"])
             elif msg["key"] == "master":
+                if self.display_view != 7:
+                    continue
                 self.update_master_channel()
             elif msg["key"] == "fxmix":
+                if self.display_view != 7:
+                    continue
                 self.update_fxreturn_channel(msg["data"]["channel"])
             elif msg["key"] == "init":
                 self.display_mix_channels()
@@ -150,10 +159,13 @@ class APC(controllers.APCMinimkii):
         self.exit_flag.set()
         self.join_thread()
 
+    def start(self) -> None:
+        self.logger.critical(f"starting apc! state: {self.ready}")
+        self.reset(fast=True)
+        self.update_thread.start()
+
     def on_ready(self) -> None:
         self.ready = True
-        self.update_thread.start()
-        self.logger.debug(f"{self.name} is ready!")
 
     def on_event(self, event) -> None:
         if isinstance(event, self.GridButton):
@@ -220,7 +232,7 @@ class APC(controllers.APCMinimkii):
                 self.master_lock_entry = []
                 self.display_view = 7
                 self.last_used_channel = None
-                self.display_mix_channels()
+                self.display_master_fxreturn()
         elif isinstance(event, self.LowerButton):
             if not event.state:
                 return None
@@ -321,12 +333,16 @@ class APC(controllers.APCMinimkii):
                 and self.display_view == 0
             ):
                 channel_id = event.button_id + self.channels_index
-                mute = not bool(int(
+                self.logger.critical(f"{self.shift} && {self.midimix_shift}")
+                self.logger.critical(
+                    f"{self.config.get_channel_value(str(channel_id), 'mute')}"
+                )
+                mute_state = not bool(int(
                     self.config.get_channel_value(str(channel_id), "mute")
                 ))
                 self.sender.mute(
                     channel_id,
-                    mute,
+                    int(mute_state),
                     "i"
                 )
                 return None
@@ -367,20 +383,23 @@ class APC(controllers.APCMinimkii):
         self.reset(fast=True)
         self.set_view_button()
         for channel in range(
-            self.controller.channels_index,
-            self.controller.channels_index + 8
+            self.channels_index,
+            self.channels_index + 8
         ):
             self.update_mix_channel(channel)
 
     def update_mix_channel(self, channel: str | int) -> None:
         # Make sure channel value is type string
+        # TODO: MAke sure channel is in view otherwise disregard information
         channel = str(channel)
         # Set values and request missing values from config
+        if 0 > int(channel) - self.channels_index > 7:
+            return None
         self.display_channel(
-            int(channel) - self.controller.channels_index,
-            self.controller.config.get_channel_value(channel, "mix"),
+            int(channel) - self.channels_index,
+            self.config.get_channel_value(channel, "mix"),
             "orange",
-            self.controller.config.get_channel_value(channel, "mute"),
+            self.config.get_channel_value(channel, "mute"),
             set_lower_as_zero=True
         )
 
@@ -393,16 +412,16 @@ class APC(controllers.APCMinimkii):
 
     def update_master_channel(self) -> None:
         self.display_channel(
-            7, self.controller.config.get_master(),
+            7, self.config.get_master(),
             "red", 0, set_lower_as_zero=True
         )
 
     def update_fxreturn_channel(self, fx: int | str) -> None:
         self.display_channel(
             int(fx),
-            self.controller.config.get_fx_value(str(fx), "mix"),
+            self.config.get_fx_value(str(fx), "mix"),
             self.vars.map_color[int(fx)],
-            self.controller.config.get_fx_value(str(fx), "mute")
+            self.config.get_fx_value(str(fx), "mute")
         )
 
     def set_view_button(self) -> None:
@@ -412,7 +431,7 @@ class APC(controllers.APCMinimkii):
         for y in range(0, 8):
             self.sidebuttons.set_led(
                 y,
-                0 if y != self.controller.display_view else 1
+                0 if y != self.display_view else 1
             )
 
     def display_channel(
@@ -420,6 +439,10 @@ class APC(controllers.APCMinimkii):
             is_mute: str, set_lower_as_zero: bool = False
     ) -> None:
         mix_value = self.vars.soundcraft_to_midi(value)
+        if 0 > int(channel):
+            return None
+        if int(channel) > 7:
+            return None
         if mix_value == 0 and float(value) > 0:
             mix_value += 1
         elif mix_value == 8 and round(float(value), 1) < 1:

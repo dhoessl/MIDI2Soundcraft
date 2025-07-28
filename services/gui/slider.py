@@ -5,16 +5,19 @@ from .config import SLIDER_EFFECTS, WINDOW_CONFIG
 
 
 class CustomSlider(QSlider):
-    def __init__(self, slider_position: int = 0) -> None:
+    def __init__(
+            self, slider_position: int = 0,
+            min: int = 0, max: int = 127
+    ) -> None:
         super().__init__()
         self.saved_position = slider_position
-        self._set_style()
+        self._set_style(min, max)
 
-    def _set_style(self) -> None:
+    def _set_style(self, min, max) -> None:
         self.setTickPosition(QSlider.TickPosition.TicksBothSides)
         self.setTickInterval(16)
-        self.setMinimum(0)
-        self.setMaximum(127)
+        self.setMinimum(min)
+        self.setMaximum(max)
         self.setValue(self.saved_position)
         self.setStyleSheet("""
             QSlider::handle:vertical {
@@ -44,7 +47,10 @@ class SliderFrame(StyledFrame):
         self.id = slider_id
         self.slider_name = slider_name
         self.label_value = StyledLabel("NaN")
-        self.slider = CustomSlider(slider_position)
+        if slider_name == "BPM":
+            self.slider = CustomSlider(slider_position, 60, 187)
+        else:
+            self.slider = CustomSlider(slider_position)
         # Reset Value if Fader has been changed
         self.slider.valueChanged.connect(self.slider.reset_value)
         self._set_style()

@@ -24,5 +24,10 @@ def get_args() -> Namespace:
         action="store_true",
         help="Output Log with colors to stdout"
     )
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Debugging run"
+    )
 
     return parser.parse_args()

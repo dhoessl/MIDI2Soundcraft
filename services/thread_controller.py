@@ -42,7 +42,7 @@ class ThreadController:
         )
         self.update_thread = UpdateConfigThread(
             update_queue, apc_queue, midimix_queue, gui_queue,
-            config
+            config, self.logger.name
         )
         self.apc_keepalive_thread = ApcControllerThread(
             apc_queue, gui_queue, midimix_queue,
@@ -63,6 +63,10 @@ class ThreadController:
         self.apc_keepalive_thread.terminate()
         self.midimix_keepalive_thread.terminate()
         self.gui_controller.terminate()
+
+    def test(self) -> None:
+        self.logger.info("APC => Starting")
+        self.apc_keepalive_thread.start()
 
     def start(self) -> None:
         self._check_network_connection()

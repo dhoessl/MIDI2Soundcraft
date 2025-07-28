@@ -1,5 +1,5 @@
 from .formatter import OutputFormatter, ConfigVars
-from logging import getLogger, INFO
+from logging import getLogger
 from os import path
 from pathlib import Path
 from json import dumps, loads
@@ -40,8 +40,6 @@ def remove_preset(preset_id) -> None:
 class Config:
     def __init__(self, logger_name: str = "ConfigObject") -> None:
         self.logger = getLogger(logger_name)
-        if self.logger.level < 20:
-            self.logger.setLevel(INFO)
         self.master = None
         self.bpm = None
         self.channels = ChannelCollection()
