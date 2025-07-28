@@ -48,20 +48,30 @@ class MidimixControllerThread:
 
     def _thread(self) -> None:
         while not self.exit_flag.is_set():
-            if not self.midi_string:
+            if (
+                self.midimix
+                and self.midimix.is_alive()
+                and self.midimix.update_thread.is_alive()
+            ):
+                sleep(.5)
+            elif not self.midi_string:
                 self.logger.warning("No Port for Midimix found")
                 self.midi_string = \
                     self.get_midi_string(MIDIMIX_DISCOVER_STRING)
                 sleep(.5)
-                continue
-            if (
+            elif (
                 not self.midimix
                 or (
                     self.midimix
-                    and self.midimix.ready
-                    and self.midimix.is_alive()
+                    and not self.midimix.is_alive()
+                )
+                or (
+                    self.midimix
+                    and not self.midimix.update_thread.is_alive()
                 )
             ):
+                if self.midimix and self.midimix.update_thread.is_alive():
+                    self.midimix.terminate()
                 try:
                     self.midimix = Midimix(
                         self.midi_string, self.midimix_queue,
@@ -85,6 +95,8 @@ class MidimixControllerThread:
             self.keepalive_thread.join()
 
     def terminate(self) -> None:
+        self.logger.warning("Midimix Controller => Stopping")
+        self.midimix.terminate()
         self.exit_flag.set()
         self.join()
 
@@ -147,9 +159,11 @@ class Midimix(controllers.MIDIMix):
                     self.logger.warning(f"{self.name} cant process \n{msg}")
 
     def join_thread(self) -> None:
-        self.update_thread.join()
+        if self.update_thread.is_alive():
+            self.update_thread.join()
 
     def terminate(self) -> None:
+        self.logger.warning("{self.name} => stopping")
         self.exit_flag.set()
         self.join_thread()
 

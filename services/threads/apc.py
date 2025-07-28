@@ -46,20 +46,31 @@ class ApcControllerThread:
 
     def _thread(self) -> None:
         while not self.exit_flag.is_set():
-            if not self.midi_string:
+            if (
+                self.apc
+                and self.apc.is_alive()
+                and self.apc.update_thread.is_alive()
+            ):
+                sleep(.5)
+            elif not self.midi_string:
                 self.logger.warning("No Port for APC found")
                 self.midi_string = \
                     self.get_midi_string(APC_DISCOVER_STRING)
                 sleep(.5)
-                continue
-            if (
+            elif (
                 not self.apc
                 or (
                     self.apc
-                    and self.apc.ready
-                    and self.apc.is_alive()
+                    and not self.apc.is_alive()
+                )
+                or (
+                    self.apc
+                    and not self.apc.update_thread.is_alive()
                 )
             ):
+                if self.apc and self.apc.update_thread.is_alive():
+                    # Shutdown apc if its running
+                    self.apc.terminate()
                 try:
                     self.apc = APC(
                         self.midi_string, self.apc_queue,
@@ -72,6 +83,7 @@ class ApcControllerThread:
                     self.apc_queue.put({"key": "init"})
                     self.logger.warning(f"{self.apc.name} => created!")
                     self.apc.start()
+                    sleep(.5)
                 except:  # noqa: E722
                     self.logger.critical("APC => failed!")
 
@@ -79,9 +91,12 @@ class ApcControllerThread:
         self.keepalive_thread.start()
 
     def join(self) -> None:
-        self.keepalive_thread.join()
+        if self.keepalive_thread.is_alive():
+            self.keepalive_thread.join()
 
     def terminate(self) -> None:
+        self.logger.warning("APC Controller => Stopping")
+        self.apc.terminate()
         self.exit_flag.set()
         self.join()
 
@@ -152,7 +167,8 @@ class APC(controllers.APCMinimkii):
                     self.logger.warning(f"{self.name} cant process \n{msg}")
 
     def join_thread(self) -> None:
-        self.update_thread.join()
+        if self.update_thread.is_alive():
+            self.update_thread.join()
 
     def terminate(self) -> None:
         self.logger.warning(f"{self.name} => stopping")
@@ -390,7 +406,6 @@ class APC(controllers.APCMinimkii):
 
     def update_mix_channel(self, channel: str | int) -> None:
         # Make sure channel value is type string
-        # TODO: MAke sure channel is in view otherwise disregard information
         channel = str(channel)
         # Set values and request missing values from config
         if 0 > int(channel) - self.channels_index > 7:

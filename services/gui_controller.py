@@ -64,9 +64,11 @@ class GuiController:
         self.keepalive_thread.start()
 
     def join(self) -> None:
-        self.keepalive_thread.join()
+        if self.keepalive_thread.is_alive():
+            self.keepalive_thread.join()
 
     def terminate(self) -> None:
+        self.logger.info("GUI Updater => stopping")
         self.exit_flag.set()
         self.join()
 

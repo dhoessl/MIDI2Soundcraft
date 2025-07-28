@@ -65,6 +65,7 @@ class ThreadController:
         self.gui_controller.terminate()
 
     def test(self) -> None:
+        self.logger.warning("This is a test")
         self.logger.info("APC => Starting")
         self.apc_keepalive_thread.start()
 
@@ -75,7 +76,10 @@ class ThreadController:
         while setup_listener:
             self.listener.start()
             self._check_mixer_connection(self.listener)
-            if self.update_queue.qsize() < 1:
+            if self.update_queue.qsize() == 0:
+                # Make sure we do not just throw the thread away.
+                # we need to clean stuff up
+                self.listener.terminate()
                 self.listener = MixerListener(
                     MIXER_ADDRESS, MIXER_PORT,
                     queue=self.update_queue, logger_name=self.logger.name
@@ -99,14 +103,14 @@ class ThreadController:
         self.midimix_keepalive_thread.start()
         self.logger.info("Gui => Starting")
         self.gui_controller.start()
-        self.logger.debug(
+        self.logger.info(
             "All Functions are now indepentend! "
             "Happy to help => Back into the control room."
         )
 
     def _wait_for_updates(self) -> None:
         while self.update_queue.qsize() > 0:
-            sleep(.1)
+            sleep(.2)
         self.logger.info("Update Thread => All updates read")
 
     def _check_mixer_connection(self, connection) -> None:
@@ -119,7 +123,7 @@ class ThreadController:
                 f"{(datetime.now() - start).seconds}s"
             )
             sleep(.5)
-        self.logger.debug(
+        self.logger.info(
             f"Mixer connected. Took {(datetime.now() - start).seconds} seconds"
         )
 
