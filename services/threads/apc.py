@@ -77,6 +77,8 @@ class ApcControllerThread:
 
     def terminate(self) -> None:
         self.logger.warning("APC Controller => Stopping")
+        if self.apc:
+            self.apc.reset(fast=True)
         self.exit_flag.set()
         self.join()
 
@@ -119,6 +121,7 @@ class APC(controllers.APCMinimkii):
         elif msg["key"] == "fxmix" and self.display_view == 7:
             self.update_fxreturn_channel(msg["data"]["channel"])
         elif msg["key"] == "init":
+            self.reset(fast=True)
             if self.display_view == 0:
                 self.display_mix_channels()
             elif self.display_view == 7:
@@ -131,7 +134,6 @@ class APC(controllers.APCMinimkii):
 
     def on_ready(self) -> None:
         self.ready = True
-        self.reset(fast=True)
         self.logger.warning(f"APC -> {self.ready}")
         self.update_settings({"key": "init"})
 

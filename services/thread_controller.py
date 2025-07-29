@@ -54,7 +54,7 @@ class ThreadController:
         self.update_thread.terminate()
         self.apc_keepalive_thread.terminate()
         self.midimix_keepalive_thread.terminate()
-        self.gui_controller.terminate()
+        # self.gui_controller.terminate()
 
     def test(self) -> None:
         self.logger.warning("This is a test")
@@ -68,6 +68,7 @@ class ThreadController:
         while setup_listener:
             self.listener.start()
             self._check_mixer_connection(self.listener)
+            sleep(1)
             if self.update_queue.qsize() == 0:
                 # Make sure we do not just throw the thread away.
                 # we need to clean stuff up
@@ -94,7 +95,7 @@ class ThreadController:
         self.logger.info("Midimix => Starting")
         self.midimix_keepalive_thread.start()
         self.logger.info("Gui => Starting")
-        self.gui_controller.start()
+        # self.gui_controller.start()
         self.logger.info(
             "All Functions are now indepentend! "
             "Happy to help => Back into the control room."

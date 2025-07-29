@@ -66,7 +66,8 @@ class Config:
         # send fx1 par1 parameter to set delay mode correctly
         fx1par1 = 1
         if int(fx_id) == 1 and key == "par2":
-            fx1par1 = float(self.get_fx_value("1", "par1"))
+            fx1par1 = self.get_fx_value("1", "par1")
+            fx1par1 = float(fx1par1) if fx1par1 else 1
         self.logger.info(
             f"{self.formatter.fx_name(fx_id)} => "
             f"{self.formatter.fx_parname(fx_id, key)} => "

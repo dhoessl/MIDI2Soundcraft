@@ -80,6 +80,8 @@ class MidimixControllerThread:
 
     def terminate(self) -> None:
         self.logger.warning("Midimix Controller => Stopping")
+        if self.midimix:
+            self.midimix.reset()
         self.exit_flag.set()
         self.join()
 
@@ -123,7 +125,7 @@ class Midimix(controllers.MIDIMix):
         if msg["key"] == "init":
             self.reset()
             self.display_presets()
-        if msg["key"] == "apc_shift":
+        elif msg["key"] == "apc_shift":
             self.apc_shift = msg["data"]["state"]
         else:
             if self.args.verbose:
@@ -132,6 +134,7 @@ class Midimix(controllers.MIDIMix):
     def on_ready(self) -> None:
         self.ready = True
         self.logger.warning(f"{self.name} is ready!")
+        self.update_settings({"key": "init"})
 
     def on_event(self, event) -> None:
         if isinstance(event, self.Knob):
