@@ -67,6 +67,7 @@ class MidimixControllerThread:
                         self.parent
                     )
                     self.logger.warning(f"{self.midimix.name} => created!")
+                    self.midimix.update_settings({"key": "init"})
                     sleep(.5)
                 except:  # noqa: E722
                     self.logger.critical("Midimix => failed!")
@@ -134,7 +135,6 @@ class Midimix(controllers.MIDIMix):
     def on_ready(self) -> None:
         self.ready = True
         self.logger.warning(f"{self.name} is ready!")
-        self.update_settings({"key": "init"})
 
     def on_event(self, event) -> None:
         if isinstance(event, self.Knob):
@@ -143,9 +143,9 @@ class Midimix(controllers.MIDIMix):
                 if current_knob in check_set:
                     channel = self.KNOB_MAPPING.index(check_set)
                     break
-            channel += self.channelfxsend_index * 6
+            channel_send = channel + self.channelfxsend_index * 6
             self.sender.fx(
-                channel,
+                channel_send,
                 self.vars.midi_to_soundcraft(event.value),
                 "i", self.KNOB_MAPPING[channel].index((event.x, event.y))
             )

@@ -64,6 +64,7 @@ class ApcControllerThread:
                         self.config, self.args, self.logger.name, self.parent
                     )
                     self.logger.warning(f"{self.apc.name} => created!")
+                    self.apc.update_settings({"key": "init"})
                     sleep(.5)
                 except:  # noqa: E722
                     self.logger.critical("APC => failed!")
@@ -135,7 +136,6 @@ class APC(controllers.APCMinimkii):
     def on_ready(self) -> None:
         self.ready = True
         self.logger.warning(f"APC -> {self.ready}")
-        self.update_settings({"key": "init"})
 
     def on_event(self, event) -> None:
         if isinstance(event, self.GridButton):
