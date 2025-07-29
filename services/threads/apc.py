@@ -5,7 +5,6 @@ from time import sleep
 from re import match
 from logging import getLogger
 from threading import Thread, Event
-from queue import Queue
 from argparse import Namespace
 from services.config import APC_DISCOVER_STRING, Config, MASTER_LOCK
 from services.formatter import ConfigVars
@@ -14,22 +13,18 @@ from services.formatter import ConfigVars
 class ApcControllerThread:
     def __init__(
         self,
-        apc_queue: Queue,
-        gui_queue: Queue,
-        midimix_queue: Queue,
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        logger_name: str = "APC"
+        logger_name: str = "APC",
+        parent: None = None
     ) -> None:
         self.logger = getLogger(logger_name)
         self.args = args
         self.midi_string = self.get_midi_string(APC_DISCOVER_STRING)
         self.sender = sender
-        self.apc_queue = apc_queue
-        self.gui_queue = gui_queue
-        self.midimix_queue = midimix_queue
         self.config = config
+        self.parent = parent
         self.apc = None
         self.keepalive_thread = Thread(
             target=self._thread,
@@ -49,7 +44,6 @@ class ApcControllerThread:
             if (
                 self.apc
                 and self.apc.is_alive()
-                and self.apc.update_thread.is_alive()
             ):
                 sleep(.5)
             elif not self.midi_string:
@@ -63,26 +57,13 @@ class ApcControllerThread:
                     self.apc
                     and not self.apc.is_alive()
                 )
-                or (
-                    self.apc
-                    and not self.apc.update_thread.is_alive()
-                )
             ):
-                if self.apc and self.apc.update_thread.is_alive():
-                    # Shutdown apc if its running
-                    self.apc.terminate()
                 try:
                     self.apc = APC(
-                        self.midi_string, self.apc_queue,
-                        self.gui_queue, self.midimix_queue, self.sender,
-                        self.config, self.args, self.logger.name
+                        self.midi_string, self.sender,
+                        self.config, self.args, self.logger.name, self.parent
                     )
-                    # Drain Queue and send init request
-                    while self.apc_queue.qsize() > 0:
-                        self.apc_queue.get()
-                    self.apc_queue.put({"key": "init"})
                     self.logger.warning(f"{self.apc.name} => created!")
-                    self.apc.start()
                     sleep(.5)
                 except:  # noqa: E722
                     self.logger.critical("APC => failed!")
@@ -96,7 +77,6 @@ class ApcControllerThread:
 
     def terminate(self) -> None:
         self.logger.warning("APC Controller => Stopping")
-        self.apc.terminate()
         self.exit_flag.set()
         self.join()
 
@@ -105,24 +85,20 @@ class APC(controllers.APCMinimkii):
     def __init__(
         self,
         midi_string: str,
-        apc_queue: Queue,
-        gui_queue: Queue,
-        midimix_queue: Queue,
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        logger_name: str = "APC"
+        logger_name: str = "APC",
+        parent: None = None
     ) -> None:
         super().__init__(midi_string, midi_string)
-        self.args = args
         self.midi_string = midi_string
         self.logger = getLogger(logger_name)
+        self.args = args
         self.sender = sender
         self.config = config
         self.vars = ConfigVars()
-        self.apc_queue = apc_queue
-        self.gui_queue = gui_queue
-        self.midimix_queue = midimix_queue
+        self.parent = parent
         self.ready_dispatch = self.on_ready
         self.event_dispatch = self.on_event
         self.ready = False
@@ -134,54 +110,30 @@ class APC(controllers.APCMinimkii):
         self.last_used_channel = None
         self.master_lock = MASTER_LOCK
         self.master_lock_entry = []
-        self.update_thread = Thread(
-            target=self._update_thread,
-            args=()
-        )
-        self.exit_flag = Event()
 
-    def _update_thread(self) -> None:
-        while not self.exit_flag.is_set():
-            if self.apc_queue.qsize() == 0:
-                continue
-            msg = self.apc_queue.get()
-            self.logger.info(f"APC => {msg}")
-            if msg["key"] == "channel":
-                if self.display_view != 0:
-                    continue
-                self.update_mix_channel(msg["data"]["channel"])
-            elif msg["key"] == "master":
-                if self.display_view != 7:
-                    continue
-                self.update_master_channel()
-            elif msg["key"] == "fxmix":
-                if self.display_view != 7:
-                    continue
-                self.update_fxreturn_channel(msg["data"]["channel"])
-            elif msg["key"] == "init":
+    def update_settings(self, msg) -> None:
+        if msg["key"] == "channel" and self.display_view == 0:
+            self.update_mix_channel(msg["data"]["channel"])
+        elif msg["key"] == "master" and self.display_view == 7:
+            self.update_master_channel()
+        elif msg["key"] == "fxmix" and self.display_view == 7:
+            self.update_fxreturn_channel(msg["data"]["channel"])
+        elif msg["key"] == "init":
+            if self.display_view == 0:
                 self.display_mix_channels()
-            elif msg["key"] == "shift":
-                self.midimix_shift = msg["state"]
-            else:
-                if self.args.verbose:
-                    self.logger.warning(f"{self.name} cant process \n{msg}")
-
-    def join_thread(self) -> None:
-        if self.update_thread.is_alive():
-            self.update_thread.join()
-
-    def terminate(self) -> None:
-        self.logger.warning(f"{self.name} => stopping")
-        self.exit_flag.set()
-        self.join_thread()
-
-    def start(self) -> None:
-        self.logger.critical(f"starting apc! state: {self.ready}")
-        self.reset(fast=True)
-        self.update_thread.start()
+            elif self.display_view == 7:
+                self.display_master_fxreturn()
+        elif msg["key"] == "midimix_shift":
+            self.midimix_shift = msg["data"]["state"]
+        else:
+            if self.args.verbose:
+                self.logger.error(f"{self.name} => cant process\n{msg}")
 
     def on_ready(self) -> None:
         self.ready = True
+        self.reset(fast=True)
+        self.logger.warning(f"APC -> {self.ready}")
+        self.update_settings({"key": "init"})
 
     def on_event(self, event) -> None:
         if isinstance(event, self.GridButton):
@@ -244,11 +196,17 @@ class APC(controllers.APCMinimkii):
                 self.display_view = 0
                 self.last_used_channel = None
                 self.display_mix_channels()
+                self.parent.notify_update(
+                    "matrix_view", {"view": self.display_view}
+                )
             elif event.button_id == 7 and self.display_view != 7:
                 self.master_lock_entry = []
                 self.display_view = 7
                 self.last_used_channel = None
                 self.display_master_fxreturn()
+                self.parent.notify_update(
+                    "matrix_view", {"view": self.display_view}
+                )
         elif isinstance(event, self.LowerButton):
             if not event.state:
                 return None
@@ -282,10 +240,10 @@ class APC(controllers.APCMinimkii):
             ):
                 self.channels_index -= 1
                 self.display_mix_channels()
-                self.gui_queue.put({
-                    "key": "channel_move",
-                    "data": {"inc": False, "index": self.channels_index}
-                })
+                self.parent.notify_update(
+                    "channel_move",
+                    {"inc": False, "index": self.channels_index}
+                )
                 return None
             elif (
                 (self.shift or self.midimix_shift)
@@ -295,10 +253,10 @@ class APC(controllers.APCMinimkii):
             ):
                 self.channels_index += 1
                 self.display_mix_channels()
-                self.gui_queue.put({
-                    "key": "channel_move",
-                    "data": {"inc": True, "index": self.channels_index}
-                })
+                self.parent.notify_update(
+                    "channel_move",
+                    {"inc": True, "index": self.channels_index}
+                )
                 return None
             elif (
                 (self.shift or self.midimix_shift)
@@ -349,10 +307,6 @@ class APC(controllers.APCMinimkii):
                 and self.display_view == 0
             ):
                 channel_id = event.button_id + self.channels_index
-                self.logger.critical(f"{self.shift} && {self.midimix_shift}")
-                self.logger.critical(
-                    f"{self.config.get_channel_value(str(channel_id), 'mute')}"
-                )
                 mute_state = not bool(int(
                     self.config.get_channel_value(str(channel_id), "mute")
                 ))
@@ -391,8 +345,7 @@ class APC(controllers.APCMinimkii):
                 )
         elif isinstance(event, self.ShiftButton):
             self.shift = True if event.state else False
-            self.gui_queue.put({"key": "shift", "state": event.state})
-            self.midimix_queue.put({"key": "shift", "state": event.state})
+            self.parent.notify_update("apc_shift", {"state": event.state})
 
     def display_mix_channels(self) -> None:
         """ render full channel mix overview """

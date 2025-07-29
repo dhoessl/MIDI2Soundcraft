@@ -103,6 +103,8 @@ class BaseFrame(QFrame):
         self.widget_apc = APC()
         self.widget_midimix = MidiMix()
         self.widget_log = LogOutput()
+        self.apc_shift = False
+        self.midimix_shift = False
         self._set_style()
 
     def _set_style(self) -> None:
@@ -139,10 +141,23 @@ class BaseFrame(QFrame):
     def set_apc_side_button(self, button_id: int) -> None:
         self.widget_apc.set_side_button(button_id)
 
-    def set_shift_button(self, state: bool) -> None:
-        # Add more here if you want to implement some more shift functions
-        # even to other keys
-        self.widget_apc.set_shift_button(state)
+    def set_shift_button(self, state: bool, controller: str) -> None:
+        if state and controller == "apc":
+            self.apc_shift = True
+            if not self.midimix_shift:
+                self.widget_apc.set_shift_button(state)
+        elif state and controller == "midimix":
+            self.midimix_shift = True
+            if not self.apc_shift:
+                self.widget_apc.set_shift_button(state)
+        elif not state and controller == "apc":
+            self.apc_shift = False
+            if not self.midimix_shift:
+                self.widget_apc.set_shift_button(state)
+        elif not state and controller == "midimix":
+            self.midimix_shift = False
+            if not self.apc_shift:
+                self.widget_apc.set_shift_button(state)
 
     def set_apc_mute_button(self, button_id: int, state: bool) -> None:
         self.widget_apc.set_mute_button(button_id, state)

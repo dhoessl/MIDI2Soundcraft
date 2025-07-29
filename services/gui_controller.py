@@ -2,8 +2,6 @@ from .formatter import ConfigVars, OutputFormatter
 from .gui import BaseFrame
 from .config import Config
 from logging import getLogger
-from threading import Thread, Event
-from queue import Queue
 
 
 class GuiController:
@@ -11,66 +9,51 @@ class GuiController:
         self,
         gui: BaseFrame,
         config: Config,
-        gui_queue: Queue,
-        logger_name: str = "GuiController"
+        logger_name: str = "GuiController",
+        parent: None = None
     ) -> None:
         self.logger = getLogger(logger_name)
-        self.gui_queue = gui_queue
         self.gui = gui
         self.vars = ConfigVars()
         self.config = config
         self.formatter = OutputFormatter()
-        self.keepalive_thread = Thread(
-            target=self._thread,
-            args=()
-        )
-        self.exit_flag = Event()
+        self.parent = parent
 
-    def _thread(self) -> None:
-        while not self.exit_flag.is_set():
-            if self.gui_queue.qsize() == 0:
-                continue
-            msg = self.gui_queue.get()
-            if msg["key"] == "channel":
-                self.update_apc_mix_channel(msg["data"]["channel"])
-            elif msg["key"] == "master":
-                self.update_master()
-            elif msg["key"] == "bpm":
-                self.update_bpm()
-            elif msg["key"] == "channel_fx":
-                self.update_channel_fx(
-                    msg["data"]["channel"],
-                    msg["data"]["fx"],
-                    msg["data"]["function"]
-                )
-            elif msg["key"] == "fxmix":
-                self.update_fx_return(msg["data"]["channel"])
-            elif msg["key"] == "fxpar":
-                self.update_fx_params(
-                    msg["data"]["channel"],
-                    msg["data"]["function"]
-                )
-            elif msg["key"] == "shift":
-                self.set_shift_button(msg["state"])
-            elif msg["key"] == "channel_move":
-                self.update_mix_channels(
-                    msg["data"]["inc"],
-                    msg["data"]["index"]
-                )
-            elif msg["key"] == "fx_move":
-                self.update_dial_channels()
-
-    def start(self) -> None:
-        self.keepalive_thread.start()
-
-    def join(self) -> None:
-        if self.keepalive_thread.is_alive():
-            self.keepalive_thread.join()
-
-    def terminate(self) -> None:
-        self.logger.info("GUI Updater => stopping")
-        self.exit_flag.set()
-        self.join()
+    def update_settings(self, msg) -> None:
+        if msg["key"] == "bpm":
+            self.update_bpm()
+        elif msg["key"] == "channel_fx":
+            self.update_channel_fx(
+                msg["data"]["channel"],
+                msg["data"]["fx"],
+                msg["data"]["function"]
+            )
+        elif msg["key"] == "channel":
+            self.update_apc_mix_channel(msg["data"]["channel"])
+        elif msg["key"] == "master":
+            self.update_master()
+        elif msg["key"] == "fxmix":
+            self.update_fx_return(msg["data"]["channel"])
+        elif msg["key"] == "fxpar":
+            self.update_fx_params(
+                msg["data"]["channel"],
+                msg["data"]["function"]
+            )
+        elif msg["key"] == "channel_move":
+            self.update_mix_channels(
+                msg["data"]["inc"],
+                msg["data"]["index"]
+            )
+        elif msg["key"] == "fx_move":
+            self.update_dial_channels()
+        elif msg["key"] == "apc_shift":
+            self.set_shift_button(msg["data"]["state"], "apc")
+        elif msg["key"] == "midimix_shift":
+            self.set_shift_button(msg["data"]["state"], "midimix")
+        elif msg["key"] == "matrix_view":
+            self.set_apc_side_button(msg["data"]["view"])
+        else:
+            pass  # since no logger is active here
 
     def update_bpm(self) -> None:
         bpm = int(self.config.get_bpm())

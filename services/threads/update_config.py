@@ -2,6 +2,7 @@ from queue import Queue
 from threading import Thread, Event
 from logging import getLogger
 from re import match
+from time import sleep
 from services.config import Config
 
 
@@ -13,16 +14,12 @@ class UpdateConfigThread:
     def __init__(
         self,
         update_queue: Queue,
-        apc_queue: Queue,
-        midimix_queue: Queue,
-        gui_queue: Queue,
         config: Config,
-        logger_name: str = "UpdateConfigThread"
+        logger_name: str = "UpdateConfigThread",
+        parent: None = None  # cant specify because it would be circular import
     ) -> None:
         self.logger = getLogger(logger_name)
-        self.apc_queue = apc_queue
-        self.midimix_queue = midimix_queue
-        self.gui_queue = gui_queue
+        self.parent = parent
         self.thread = Thread(
             target=self._thread, args=(update_queue, config)
         )
@@ -30,8 +27,16 @@ class UpdateConfigThread:
 
     def _thread(self, update_queue: Queue, config: Config) -> None:
         self.logger.info("Starting Update Thread")
+        self_init = True
         while not self.exit_flag.is_set():
             if update_queue.qsize() == 0:
+                if self_init:
+                    self_init = False
+                    self.logger.info(
+                        "Update Thread init complete"
+                        " - Notifications will be send now"
+                    )
+                sleep(.1)
                 continue
 
             msg = update_queue.get()
@@ -49,7 +54,9 @@ class UpdateConfigThread:
                     msg["channel"], msg["option_channel"],
                     msg["function"], msg["value"]
                 )
-                self.notify_update(
+                if self_init:
+                    continue
+                self.parent.notify_update(
                     "channel_fx",
                     {
                         "channel": msg["channel"],
@@ -66,7 +73,9 @@ class UpdateConfigThread:
                 config.update_channel(
                     msg["channel"], msg["function"], msg["value"]
                 )
-                self.notify_update(
+                if self_init:
+                    continue
+                self.parent.notify_update(
                     "channel",
                     {
                         "channel": msg["channel"],
@@ -79,7 +88,9 @@ class UpdateConfigThread:
                 and msg["channel"] == "mix"
             ):
                 config.update_master(msg["value"])
-                self.notify_update("master")
+                if self_init:
+                    continue
+                self.parent.notify_update("master")
             elif (
                 msg["kind"] == "f"
                 and "function" in msg
@@ -90,12 +101,16 @@ class UpdateConfigThread:
             ):
                 if msg["function"] == "bpm":
                     config.update_bpm(msg["value"])
-                    self.notify_update("bpm")
+                    if self_init:
+                        continue
+                    self.parent.notify_update("bpm")
                     continue
                 config.update_fx(
                     msg["channel"], msg["function"], msg["value"]
                 )
-                self.notify_update(
+                if self_init:
+                    continue
+                self.parent.notify_update(
                     "fx",
                     {
                         "channel": msg["channel"],
@@ -104,26 +119,6 @@ class UpdateConfigThread:
                 )
             else:
                 continue
-
-    def notify_update(self, key: str, data: dict = {}) -> None:
-        if key == "bpm":
-            self.gui_queue.put({"key": key})
-        elif key == "channel_fx":
-            self.gui_queue.put({"key": key, "data": data})
-        elif key == "channel":
-            self.gui_queue.put({"key": key, "data": data})
-            self.apc_queue.put({"key": key, "data": data})
-        elif key == "master":
-            self.gui_queue.put({"key": key})
-            self.apc_queue.put({"key": key})
-        elif key == "fx":
-            if data["function"] == "mix":
-                self.apc_queue.put({"key": "fxmix", "data": data})
-                self.gui_queue.put({"key": "fxmix", "data": data})
-            elif "par" in data["function"]:
-                self.gui_queue.put({"key": "fxpar", "data": data})
-        else:
-            return None
 
     def start(self) -> None:
         self.thread.start()

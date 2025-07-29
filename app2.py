@@ -23,15 +23,11 @@ class GUIApplication(QApplication):
         )
 
         self.update_queue = Queue()
-        self.apc_queue = Queue()
-        self.midimix_queue = Queue()
-        self.gui_queue = Queue()
         self.config = Config(self.logger.name)
 
         thread_controller = ThreadController(
-            self.update_queue, self.apc_queue,
-            self.midimix_queue, self.gui_queue,
-            self.config, self.widget_main, args,
+            self.update_queue, self.config,
+            self.widget_main, args,
             self.logger.name
         )
         if args.test:

@@ -17,9 +17,6 @@ class ThreadController:
     def __init__(
         self,
         update_queue: Queue,
-        apc_queue: Queue,
-        midimix_queue: Queue,
-        gui_queue: Queue,
         config: Config,
         gui: BaseFrame,
         args: Namespace,
@@ -27,8 +24,6 @@ class ThreadController:
     ) -> None:
         # vars
         self.logger = getLogger(logger_name)
-        self.apc = None
-        self.midimix = None
         self.update_queue = update_queue
         self.args = args
         # Threads
@@ -41,19 +36,16 @@ class ThreadController:
             queue=update_queue, logger_name=self.logger.name
         )
         self.update_thread = UpdateConfigThread(
-            update_queue, apc_queue, midimix_queue, gui_queue,
-            config, self.logger.name
+            update_queue, config, self.logger.name, self
         )
         self.apc_keepalive_thread = ApcControllerThread(
-            apc_queue, gui_queue, midimix_queue,
-            self.sender, config, args, self.logger.name
+            self.sender, config, args, self.logger.name, self
         )
         self.midimix_keepalive_thread = MidimixControllerThread(
-            midimix_queue, gui_queue, apc_queue,
-            self.sender, config, args, self.logger.name
+            self.sender, config, args, self.logger.name, self
         )
         self.gui_controller = GuiController(
-            gui, config, gui_queue, self.logger.name
+            gui, config, self.logger.name, self
         )
 
     def terminate(self) -> None:
@@ -111,7 +103,7 @@ class ThreadController:
     def _wait_for_updates(self) -> None:
         while self.update_queue.qsize() > 0:
             sleep(.2)
-        self.logger.info("Update Thread => All updates read")
+        self.logger.warning("Update Thread => All updates read")
 
     def _check_mixer_connection(self, connection) -> None:
         if self.args.skip_network_check:
@@ -135,3 +127,62 @@ class ThreadController:
             self.args.skip_network_check,
             logger_name=self.logger.name
         )
+
+    def notify_update(self, key: str, data: dict = {}) -> None:
+        if key == "bpm":
+            self.gui_controller.update_settings({"key": key, "data": data})
+        elif key == "channel_fx":
+            self.gui_controller.update_settings({"key": key, "data": data})
+        elif key == "channel":
+            self.gui_controller.update_settings({"key": key, "data": data})
+            if self.apc_keepalive_thread.apc:
+                self.apc_keepalive_thread.apc.update_settings(
+                    {"key": key, "data": data}
+                )
+        elif key == "master":
+            self.gui_controller.update_settings({"key": key})
+            if self.apc_keepalive_thread.apc:
+                self.apc_keepalive_thread.apc.update_settings({"key": key})
+        elif key == "fx":
+            if data["function"] == "mix":
+                if self.apc_keepalive_thread.apc:
+                    self.apc_keepalive_thread.apc.update_settings(
+                        {"key": "fxmix", "data": data}
+                    )
+                self.gui_controller.update_settings(
+                    {"key": "fxmix", "data": data}
+                )
+            elif "par" in data["function"]:
+                self.gui_controller.update_settings(
+                    {"key": "fxpar", "data": data}
+                )
+        elif key == "channel_move":
+            self.gui_controller.update_settings(
+                {"key": key, "data": data}
+            )
+        elif key == "fx_move":
+            self.gui_controller.update_settings(
+                {"key": key}
+            )
+        elif key == "apc_shift":
+            self.gui_controller.update_settings(
+                {"key": key, "data": data}
+            )
+            if self.midimix_keepalive_thread.midimix:
+                self.midimix_keepalive_thread.midimix.update_settings(
+                    {"key": key, "data": data}
+                )
+        elif key == "midimix_shift":
+            self.gui_controller.update_settings(
+                {"key": key, "data": data}
+            )
+            if self.apc_keepalive_thread.apc:
+                self.apc_keepalive_thread.apc.update_settings(
+                    {"key": key, "data": data}
+                )
+        elif key == "matrix_view":
+            self.gui_controller.update_settings(
+                {"key": key, "data": data}
+            )
+        else:
+            return None

@@ -5,7 +5,6 @@ from time import sleep
 from re import match
 from logging import getLogger
 from threading import Thread, Event
-from queue import Queue
 from argparse import Namespace
 from services.config import (
     MIDIMIX_DISCOVER_STRING, Config, load_presets, remove_preset
@@ -16,22 +15,18 @@ from services.formatter import ConfigVars
 class MidimixControllerThread:
     def __init__(
         self,
-        midimix_queue: Queue,
-        gui_queue: Queue,
-        apc_queue: Queue,
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        logger_name: str = "MidiMix"
+        logger_name: str = "MidiMix",
+        parent: None = None
     ) -> None:
         self.logger = getLogger(logger_name)
         self.args = args
-        self.midi_string = self.get_midi_string(MIDIMIX_DISCOVER_STRING)
         self.sender = sender
-        self.midimix_queue = midimix_queue
-        self.gui_queue = gui_queue
-        self.apc_queue = apc_queue
         self.config = config
+        self.parent = parent
+        self.midi_string = self.get_midi_string(MIDIMIX_DISCOVER_STRING)
         self.midimix = None
         self.keepalive_thread = Thread(
             target=self._thread,
@@ -51,7 +46,6 @@ class MidimixControllerThread:
             if (
                 self.midimix
                 and self.midimix.is_alive()
-                and self.midimix.update_thread.is_alive()
             ):
                 sleep(.5)
             elif not self.midi_string:
@@ -65,25 +59,15 @@ class MidimixControllerThread:
                     self.midimix
                     and not self.midimix.is_alive()
                 )
-                or (
-                    self.midimix
-                    and not self.midimix.update_thread.is_alive()
-                )
             ):
-                if self.midimix and self.midimix.update_thread.is_alive():
-                    self.midimix.terminate()
                 try:
                     self.midimix = Midimix(
-                        self.midi_string, self.midimix_queue,
-                        self.gui_queue, self.apc_queue, self.sender,
-                        self.config, self.args, self.logger.name
+                        self.midi_string, self.sender,
+                        self.config, self.args, self.logger.name,
+                        self.parent
                     )
-                    # Drain Queue and send init request
-                    while self.midimix_queue.qsize() > 0:
-                        self.midimix_queue.get()
-                    self.midimix_queue.put({"key": "init"})
                     self.logger.warning(f"{self.midimix.name} => created!")
-                    self.midimix.start()
+                    sleep(.5)
                 except:  # noqa: E722
                     self.logger.critical("Midimix => failed!")
 
@@ -96,7 +80,6 @@ class MidimixControllerThread:
 
     def terminate(self) -> None:
         self.logger.warning("Midimix Controller => Stopping")
-        self.midimix.terminate()
         self.exit_flag.set()
         self.join()
 
@@ -114,63 +97,37 @@ class Midimix(controllers.MIDIMix):
     def __init__(
         self,
         midi_string: str,
-        midimix_queue: Queue,
-        gui_queue: Queue,
-        apc_queue: Queue,
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        logger_name: str = "Midimix"
+        logger_name: str = "Midimix",
+        parent: None = None
     ) -> None:
         super().__init__(midi_string, midi_string)
         self.midi_string = midi_string
-        self.args = args
         self.logger = getLogger(logger_name)
+        self.args = args
         self.sender = sender
         self.config = config
         self.config_presets = load_presets()
         self.vars = ConfigVars()
-        self.midimix_queue = midimix_queue
-        self.gui_queue = gui_queue
-        self.apc_queue = apc_queue
+        self.parent = parent
         self.event_dispatch = self.on_event
         self.ready_dispatch = self.on_ready
         self.ready = False
         self.shift = False
         self.apc_shift = False
         self.channelfxsend_index = 0
-        self.update_thread = Thread(
-            target=self._update_thread,
-            args=()
-        )
-        self.exit_flag = Event()
 
-    def _update_thread(self) -> None:
-        while not self.exit_flag.is_set():
-            if self.midimix_queue.qsize() == 0:
-                continue
-            msg = self.midimix_queue.get()
-            if msg["key"] == "init":
-                self.display_presets()
-            elif msg["key"] == "shift":
-                self.apc_shift = msg["state"]
-            else:
-                if self.args.verbose:
-                    self.logger.warning(f"{self.name} cant process \n{msg}")
-
-    def join_thread(self) -> None:
-        if self.update_thread.is_alive():
-            self.update_thread.join()
-
-    def terminate(self) -> None:
-        self.logger.warning("{self.name} => stopping")
-        self.exit_flag.set()
-        self.join_thread()
-
-    def start(self) -> None:
-        self.logger.warning(f"Midimix => polling start! {self.ready}")
-        self.reset()
-        self.update_thread.start()
+    def update_settings(self, msg) -> None:
+        if msg["key"] == "init":
+            self.reset()
+            self.display_presets()
+        if msg["key"] == "apc_shift":
+            self.apc_shift = msg["data"]["state"]
+        else:
+            if self.args.verbose:
+                self.logger.warning(f"{self.name} cant process\n{msg}")
 
     def on_ready(self) -> None:
         self.ready = True
@@ -184,7 +141,6 @@ class Midimix(controllers.MIDIMix):
                     channel = self.KNOB_MAPPING.index(check_set)
                     break
             channel += self.channelfxsend_index * 6
-            self.logger.critical("Change knob")
             self.sender.fx(
                 channel,
                 self.vars.midi_to_soundcraft(event.value),
@@ -285,15 +241,17 @@ class Midimix(controllers.MIDIMix):
         if isinstance(event, self.BankButton):
             if event.state and event.button_id and self.channelfxsend_index:
                 self.channelfxsend_index = 0
-                self.gui_queue.put({"key": "fx_move"})
+                self.parent.notify_update("fx_move")
             if (event.state and not event.button_id
                     and not self.channelfxsend_index):
                 self.channelfxsend_index = 1
-                self.gui_queue.put({"key": "fx_move"})
+                self.parent.notify_update("fx_move")
         if isinstance(event, self.SoloButton):
             self.shift = True if event.state else False
-            self.apc_queue.put({"key": "shift", "state": event.state})
-            self.gui_queue.put({"key": "shift", "state": event.state})
+            self.parent.notify_update(
+                "midimix_shift",
+                {"state": event.state}
+            )
 
     def display_presets(self) -> None:
         for preset in self.config_presets:
