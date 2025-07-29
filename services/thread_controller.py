@@ -76,6 +76,7 @@ class ThreadController:
         while setup_listener:
             self.listener.start()
             self._check_mixer_connection(self.listener)
+            sleep(1)
             if self.update_queue.qsize() == 0:
                 # Make sure we do not just throw the thread away.
                 # we need to clean stuff up
