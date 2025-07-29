@@ -18,6 +18,7 @@ class GuiController:
         self.config = config
         self.formatter = OutputFormatter()
         self.parent = parent
+        self.update_settings({"key": "init"})
 
     def update_settings(self, msg) -> None:
         if msg["key"] == "bpm":
@@ -52,6 +53,20 @@ class GuiController:
             self.set_shift_button(msg["data"]["state"], "midimix")
         elif msg["key"] == "matrix_view":
             self.set_apc_side_button(msg["data"]["view"])
+        elif msg["key"] == "init":
+            for x in range(8):
+                self.update_apc_mix_channel(x)
+            self.update_dial_channels()
+            self.update_dial_channels()
+            for x in range(5):
+                self.update_fx_params("0", f"par{x + 1}")
+            for x in range(4):
+                self.update_fx_params("1", f"par{x + 1}")
+            for x in range(3):
+                self.update_fx_params("2", f"par{x + 1}")
+            for x in range(5):
+                self.update_fx_params("3", f"par{x + 1}")
+            self.update_bpm()
         else:
             pass  # since no logger is active here
 
@@ -76,7 +91,9 @@ class GuiController:
     ) -> None:
         if key != "value":
             return None
-        value = float(self.config.get_channel_fx_value(channel, fx, key))
+        value = float(self.config.get_channel_fx_value(
+            str(channel), str(fx), str(key)
+        ))
         self.gui.change_dial_value(
             int(channel), int(fx),
             int(round(float(self.vars.soundcraft127(value)), 0)),
@@ -84,8 +101,8 @@ class GuiController:
         )
 
     def update_apc_mix_channel(self, channel: str | int) -> None:
-        value_mix = float(self.config.get_channel_value(channel, "mix"))
-        value_mute = int(self.config.get_channel_value(channel, "mute"))
+        value_mix = float(self.config.get_channel_value(str(channel), "mix"))
+        value_mute = int(self.config.get_channel_value(str(channel), "mute"))
         self.gui.set_apc_channel_value(
             int(channel), self.vars.soundcraft_to_midi(value_mix),
             self.formatter.mix(value_mix)
@@ -93,7 +110,7 @@ class GuiController:
         self.gui.set_apc_mute_button(int(channel), value_mute)
 
     def update_fx_return(self, channel: str | int) -> None:
-        value = float(self.config.get_fx_value(channel, "mix"))
+        value = float(self.config.get_fx_value(str(channel), "mix"))
         self.gui.set_apc_channel_value(
             int(channel), self.vars.soundcraft_to_midi(value),
             self.formatter.mix(value)
@@ -108,7 +125,7 @@ class GuiController:
         except:  # noqa: E722
             delay_time = 1
         try:
-            value = float(self.config.get_fx_value(channel, key))
+            value = float(self.config.get_fx_value(str(channel), key))
             value_slider = round(float(self.vars.soundcraft127(value)), 0)
             value_text = self.formatter.fx_parval(
                 channel, key, value, delay_time

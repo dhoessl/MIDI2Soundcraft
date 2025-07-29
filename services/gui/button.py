@@ -17,10 +17,10 @@ class Button(StyledButton):
         self.id = btn_id
         self.text = text
         self.shift_text = shift_text
-        self.active_style = self.styleSheet()
+        self.active_style = ""
         if active_color:
             self.active_style = f"background-color: {active_color};"
-        self.default_style = self.styleSheet()
+        self.default_style = ""
         self._set_style(height)
 
     def _set_style(self, height) -> None:

@@ -68,6 +68,7 @@ class ApcControllerThread:
                     sleep(.5)
                 except:  # noqa: E722
                     self.logger.critical("APC => failed!")
+                    sleep(1)
 
     def start(self) -> None:
         self.keepalive_thread.start()
