@@ -41,11 +41,14 @@ class MidimixControllerThread:
                 return matching.group()
         return None
 
+    def is_alive(self) -> bool:
+        return True if self.midi_string in get_output_names() else False
+
     def _thread(self) -> None:
         while not self.exit_flag.is_set():
             if (
                 self.midimix
-                and self.midimix.is_alive()
+                and self.is_alive()
             ):
                 sleep(.5)
             elif not self.midi_string:
@@ -57,7 +60,7 @@ class MidimixControllerThread:
                 not self.midimix
                 or (
                     self.midimix
-                    and not self.midimix.is_alive()
+                    and not self.is_alive()
                 )
             ):
                 try:
@@ -107,7 +110,6 @@ class Midimix(controllers.MIDIMix):
         parent: None = None
     ) -> None:
         super().__init__(midi_string, midi_string)
-        self.midi_string = midi_string
         self.logger = getLogger(logger_name)
         self.args = args
         self.sender = sender
@@ -262,6 +264,3 @@ class Midimix(controllers.MIDIMix):
                 self.mutebuttons.set_led(int(preset), 1)
             else:
                 self.recarmbuttons.set_led(int(preset) - 8, 1)
-
-    def is_alive(self) -> bool:
-        return True if self.midi_string in get_output_names() else False

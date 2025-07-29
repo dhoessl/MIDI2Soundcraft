@@ -39,13 +39,16 @@ class ApcControllerThread:
                 return matching.group()
         return None
 
+    def is_alive(self) -> bool:
+        return True if self.midi_string in get_output_names() else False
+
     def _thread(self) -> None:
         while not self.exit_flag.is_set():
             if (
                 self.apc
-                and self.apc.is_alive()
+                and self.is_alive()
             ):
-                sleep(.5)
+                continue
             elif not self.midi_string:
                 self.logger.warning("No Port for APC found")
                 self.midi_string = \
@@ -55,13 +58,13 @@ class ApcControllerThread:
                 not self.apc
                 or (
                     self.apc
-                    and not self.apc.is_alive()
+                    and not self.is_alive()
                 )
             ):
                 try:
                     self.apc = APC(
-                        self.midi_string, self.sender,
-                        self.config, self.args, self.logger.name, self.parent
+                        self.midi_string, self.sender, self.config,
+                        self.args, self.logger.name, self.parent
                     )
                     self.logger.warning(f"{self.apc.name} => created!")
                     self.apc.update_settings({"key": "init"})
@@ -96,7 +99,6 @@ class APC(controllers.APCMinimkii):
         parent: None = None
     ) -> None:
         super().__init__(midi_string, midi_string)
-        self.midi_string = midi_string
         self.logger = getLogger(logger_name)
         self.args = args
         self.sender = sender
@@ -136,7 +138,7 @@ class APC(controllers.APCMinimkii):
 
     def on_ready(self) -> None:
         self.ready = True
-        self.logger.warning(f"APC -> {self.ready}")
+        self.logger.warning("{self.name} is ready")
 
     def on_event(self, event) -> None:
         if isinstance(event, self.GridButton):
@@ -437,9 +439,6 @@ class APC(controllers.APCMinimkii):
             )
         ):
             self.lowerbuttons.set_led(int(channel), 0)
-
-    def is_alive(self) -> bool:
-        return True if self.midi_string in get_output_names() else False
 
     def check_index(self, index, min, max) -> bool:
         """ Make sure the index vars do not reach out of bounce """
