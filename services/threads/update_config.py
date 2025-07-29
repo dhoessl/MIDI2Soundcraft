@@ -2,6 +2,7 @@ from queue import Queue
 from threading import Thread, Event
 from logging import getLogger
 from re import match
+from time import sleep
 from services.config import Config
 
 
@@ -30,8 +31,16 @@ class UpdateConfigThread:
 
     def _thread(self, update_queue: Queue, config: Config) -> None:
         self.logger.info("Starting Update Thread")
+        self_init = False
         while not self.exit_flag.is_set():
             if update_queue.qsize() == 0:
+                if self_init:
+                    self_init = False
+                    self.logger.info(
+                        "Update Thread init complete"
+                        " - Update Notifications will be send now"
+                    )
+                sleep(.1)
                 continue
 
             msg = update_queue.get()
@@ -49,6 +58,8 @@ class UpdateConfigThread:
                     msg["channel"], msg["option_channel"],
                     msg["function"], msg["value"]
                 )
+                if self_init:
+                    continue
                 self.notify_update(
                     "channel_fx",
                     {
@@ -66,6 +77,8 @@ class UpdateConfigThread:
                 config.update_channel(
                     msg["channel"], msg["function"], msg["value"]
                 )
+                if self_init:
+                    continue
                 self.notify_update(
                     "channel",
                     {
@@ -79,6 +92,8 @@ class UpdateConfigThread:
                 and msg["channel"] == "mix"
             ):
                 config.update_master(msg["value"])
+                if self_init:
+                    continue
                 self.notify_update("master")
             elif (
                 msg["kind"] == "f"
@@ -90,11 +105,15 @@ class UpdateConfigThread:
             ):
                 if msg["function"] == "bpm":
                     config.update_bpm(msg["value"])
+                    if self_init:
+                        continue
                     self.notify_update("bpm")
                     continue
                 config.update_fx(
                     msg["channel"], msg["function"], msg["value"]
                 )
+                if self_init:
+                    continue
                 self.notify_update(
                     "fx",
                     {
