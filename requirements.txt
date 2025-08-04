@@ -1,0 +1,7 @@
+git+https://github.com/dhoessl/apc-mini-py
+git+https://github.com/dhoessl/HD44780_1602_display_matrix
+git+https://github.com/dhoessl/soundcraft_ui16
+scipy
+mido
+colorama
+pyside6
