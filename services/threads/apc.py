@@ -1,91 +1,9 @@
 from akai_pro_py import controllers
 from soundcraft_ui16 import MixerSender
-from mido import get_output_names
-from time import sleep
-from re import match
 from logging import getLogger
-from threading import Thread, Event
 from argparse import Namespace
-from services.config import APC_DISCOVER_STRING, Config, MASTER_LOCK
+from services.config import Config, MASTER_LOCK
 from services.formatter import ConfigVars
-
-
-class ApcControllerThread:
-    def __init__(
-        self,
-        sender: MixerSender,
-        config: Config,
-        args: Namespace,
-        logger_name: str = "APC",
-        parent: None = None
-    ) -> None:
-        self.logger = getLogger(logger_name)
-        self.args = args
-        self.midi_string = self.get_midi_string(APC_DISCOVER_STRING)
-        self.sender = sender
-        self.config = config
-        self.parent = parent
-        self.apc = None
-        self.keepalive_thread = Thread(
-            target=self._thread,
-            args=()
-        )
-        self.exit_flag = Event()
-
-    def get_midi_string(self, search) -> str:
-        for port in get_output_names():
-            matching = match(search, port)
-            if matching:
-                return matching.group()
-        return None
-
-    def is_alive(self) -> bool:
-        return True if self.midi_string in get_output_names() else False
-
-    def _thread(self) -> None:
-        while not self.exit_flag.is_set():
-            if (
-                self.apc
-                and self.is_alive()
-            ):
-                continue
-            elif not self.midi_string:
-                self.logger.warning("No Port for APC found")
-                self.midi_string = \
-                    self.get_midi_string(APC_DISCOVER_STRING)
-                sleep(.5)
-            elif (
-                not self.apc
-                or (
-                    self.apc
-                    and not self.is_alive()
-                )
-            ):
-                try:
-                    self.apc = APC(
-                        self.midi_string, self.sender, self.config,
-                        self.args, self.logger.name, self.parent
-                    )
-                    self.logger.warning(f"{self.apc.name} => created!")
-                    self.apc.update_settings({"key": "init"})
-                    sleep(.5)
-                except:  # noqa: E722
-                    self.logger.critical("APC => failed!")
-                    sleep(1)
-
-    def start(self) -> None:
-        self.keepalive_thread.start()
-
-    def join(self) -> None:
-        if self.keepalive_thread.is_alive():
-            self.keepalive_thread.join()
-
-    def terminate(self) -> None:
-        self.logger.warning("APC Controller => Stopping")
-        if self.apc:
-            self.apc.reset(fast=True)
-        self.exit_flag.set()
-        self.join()
 
 
 class APC(controllers.APCMinimkii):
@@ -95,8 +13,8 @@ class APC(controllers.APCMinimkii):
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        logger_name: str = "APC",
-        parent: None = None
+        parent: None,
+        logger_name: str = "APC"
     ) -> None:
         super().__init__(midi_string, midi_string)
         self.logger = getLogger(logger_name)

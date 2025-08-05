@@ -6,7 +6,7 @@ from time import sleep
 from datetime import datetime
 from .config import MIXER_ADDRESS, MIXER_PORT, Config
 from .threads import (
-    UpdateConfigThread, ApcControllerThread, MidimixControllerThread,
+    UpdateConfigThread, MidiControllerThread
 )
 from .gui import BaseFrame
 from .wifi import wait_connect
@@ -26,6 +26,8 @@ class ThreadController:
         self.logger = getLogger(logger_name)
         self.update_queue = update_queue
         self.args = args
+        self.gui = gui
+        self.config = config
         # Threads
         self.sender = MixerSender(
             MIXER_ADDRESS, MIXER_PORT,
@@ -38,11 +40,8 @@ class ThreadController:
         self.update_thread = UpdateConfigThread(
             update_queue, config, self.logger.name, self
         )
-        self.apc_keepalive_thread = ApcControllerThread(
-            self.sender, config, args, self.logger.name, self
-        )
-        self.midimix_keepalive_thread = MidimixControllerThread(
-            self.sender, config, args, self.logger.name, self
+        self.midi_keepalive_thread = MidiControllerThread(
+            self.sender, config, args, self, self.logger.name
         )
         self.gui_controller = GuiController(
             gui, config, self.logger.name, self
@@ -52,14 +51,10 @@ class ThreadController:
         self.sender.terminate()
         self.listener.terminate()
         self.update_thread.terminate()
-        self.apc_keepalive_thread.terminate()
-        self.midimix_keepalive_thread.terminate()
-        # self.gui_controller.terminate()
+        self.midi_keepalive_thread.terminate()
 
     def test(self) -> None:
-        self.logger.warning("This is a test")
-        self.logger.info("APC => Starting")
-        self.apc_keepalive_thread.start()
+        self.logger.info("No Test set")
 
     def start(self) -> None:
         self._check_network_connection()
@@ -90,12 +85,12 @@ class ThreadController:
         self.update_thread.start()
         self._wait_for_updates()
         self.logger.info("Update Thread => Ready")
-        self.logger.info("APC => Starting")
-        self.apc_keepalive_thread.start()
-        self.logger.info("Midimix => Starting")
-        self.midimix_keepalive_thread.start()
+        self.logger.info("Midi Controllers => Starting")
+        self.midi_keepalive_thread.start()
         self.logger.info("Gui => Starting")
-        # self.gui_controller.start()
+        self.gui_controller = GuiController(
+            self.gui, self.config, self.logger.name, self
+        )
         self.logger.info(
             "All Functions are now indepentend! "
             "Happy to help => Back into the control room."
@@ -136,20 +131,19 @@ class ThreadController:
             self.gui_controller.update_settings({"key": key, "data": data})
         elif key == "channel":
             self.gui_controller.update_settings({"key": key, "data": data})
-            if self.apc_keepalive_thread.apc:
-                self.apc_keepalive_thread.apc.update_settings(
-                    {"key": key, "data": data}
-                )
+            self.midi_keepalive_thread.update_settings(
+                {"key": key, "data": data, "controller": "apc"}
+            )
         elif key == "master":
             self.gui_controller.update_settings({"key": key})
-            if self.apc_keepalive_thread.apc:
-                self.apc_keepalive_thread.apc.update_settings({"key": key})
+            self.midi_keepalive_thread.update_settings(
+                {"key": key, "controller": "apc"}
+            )
         elif key == "fx":
             if data["function"] == "mix":
-                if self.apc_keepalive_thread.apc:
-                    self.apc_keepalive_thread.apc.update_settings(
-                        {"key": "fxmix", "data": data}
-                    )
+                self.midi_keepalive_thread.update_settings(
+                    {"key": "fxmix", "controller": "apc", "data": data}
+                )
                 self.gui_controller.update_settings(
                     {"key": "fxmix", "data": data}
                 )
@@ -169,18 +163,16 @@ class ThreadController:
             self.gui_controller.update_settings(
                 {"key": key, "data": data}
             )
-            if self.midimix_keepalive_thread.midimix:
-                self.midimix_keepalive_thread.midimix.update_settings(
-                    {"key": key, "data": data}
-                )
+            self.midi_keepalive_thread.update_settings(
+                {"key": key, "controller": "midimix", "data": data}
+            )
         elif key == "midimix_shift":
             self.gui_controller.update_settings(
                 {"key": key, "data": data}
             )
-            if self.apc_keepalive_thread.apc:
-                self.apc_keepalive_thread.apc.update_settings(
-                    {"key": key, "data": data}
-                )
+            self.midi_keepalive_thread.update_settings(
+                {"key": key, "controller": "apc", "data": data}
+            )
         elif key == "matrix_view":
             self.gui_controller.update_settings(
                 {"key": key, "data": data}

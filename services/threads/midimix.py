@@ -1,93 +1,11 @@
 from akai_pro_py import controllers
 from soundcraft_ui16 import MixerSender
-from mido import get_output_names
-from time import sleep
-from re import match
 from logging import getLogger
-from threading import Thread, Event
 from argparse import Namespace
 from services.config import (
-    MIDIMIX_DISCOVER_STRING, Config, load_presets, remove_preset
+    Config, load_presets, remove_preset
 )
 from services.formatter import ConfigVars
-
-
-class MidimixControllerThread:
-    def __init__(
-        self,
-        sender: MixerSender,
-        config: Config,
-        args: Namespace,
-        logger_name: str = "MidiMix",
-        parent: None = None
-    ) -> None:
-        self.logger = getLogger(logger_name)
-        self.args = args
-        self.sender = sender
-        self.config = config
-        self.parent = parent
-        self.midi_string = self.get_midi_string(MIDIMIX_DISCOVER_STRING)
-        self.midimix = None
-        self.keepalive_thread = Thread(
-            target=self._thread,
-            args=()
-        )
-        self.exit_flag = Event()
-
-    def get_midi_string(self, search) -> str:
-        for port in get_output_names():
-            matching = match(search, port)
-            if matching:
-                return matching.group()
-        return None
-
-    def is_alive(self) -> bool:
-        return True if self.midi_string in get_output_names() else False
-
-    def _thread(self) -> None:
-        while not self.exit_flag.is_set():
-            if (
-                self.midimix
-                and self.is_alive()
-            ):
-                sleep(.5)
-            elif not self.midi_string:
-                self.logger.warning("No Port for Midimix found")
-                self.midi_string = \
-                    self.get_midi_string(MIDIMIX_DISCOVER_STRING)
-                sleep(.5)
-            elif (
-                not self.midimix
-                or (
-                    self.midimix
-                    and not self.is_alive()
-                )
-            ):
-                try:
-                    self.midimix = Midimix(
-                        self.midi_string, self.sender,
-                        self.config, self.args, self.logger.name,
-                        self.parent
-                    )
-                    self.logger.warning(f"{self.midimix.name} => created!")
-                    self.midimix.update_settings({"key": "init"})
-                    sleep(.5)
-                except:  # noqa: E722
-                    self.logger.critical("Midimix => failed!")
-
-    def start(self) -> None:
-        self.keepalive_thread.start()
-
-    def join(self) -> None:
-        if self.keepalive_thread.is_alive():
-            self.keepalive_thread.join()
-
-    def terminate(self) -> None:
-        self.logger.warning("Midimix Controller => Stopping")
-        if self.midimix:
-            self.midimix.reset()
-        self.exit_flag.set()
-        self.join()
 
 
 class Midimix(controllers.MIDIMix):
