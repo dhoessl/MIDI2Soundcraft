@@ -85,6 +85,8 @@ class ThreadController:
         self.update_thread.start()
         self._wait_for_updates()
         self.logger.info("Update Thread => Ready")
+        self.logger.info("Refresh GUI")
+        self.gui_controller.update_settings({"key": "init"})
         self.logger.info("Midi Controllers => Starting")
         self.midi_keepalive_thread.start()
         self.logger.info("Gui => Starting")

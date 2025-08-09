@@ -18,7 +18,6 @@ class GuiController:
         self.config = config
         self.formatter = OutputFormatter()
         self.parent = parent
-        self.update_settings({"key": "init"})
 
     def update_settings(self, msg) -> None:
         if msg["key"] == "bpm":
