@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Soundcraft UI16</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body>
+    <div class="container-fluid text-center">
+      <div class="row">
+        <div class="col-6">
+          <!-- APC -->
+          <div class="row mb-3 gx-2" id="mixer">
+            <!-- Mixer Channels -->
+            {%- for channel_id in range(8) %}
+            <div class="col" id="channel{{ channel_id + 1 }}">
+              <div class="mix-box" id="channel-box{{ channel_id + 1 }}">
+              </div>
+            </div>
+            {%- endfor %}
+            <div class="col" id="viewselect">
+              <!-- view select buttons -->
+              <div class="row g-3">
+                <div class="col-12" id="view1">
+                  <button type="button" class="btn btn-outline-success btn-views">
+                    Mix
+                  </button>
+                </div>
+                <div class="col-12" id="view2">
+                  <button type="button" class="btn btn-outline-secondary btn-views">
+                    2
+                  </button>
+                </div>
+                <div class="col-12" id="view3">
+                  <button type="button" class="btn btn-outline-secondary btn-views">
+                    3
+                  </button>
+                </div>
+                <div class="col-12" id="view4">
+                  <button type="button" class="btn btn-outline-secondary btn-views">
+                    4
+                  </button>
+                </div>
+                <div class="col-12" id="view5">
+                  <button type="button" class="btn btn-outline-secondary btn-views">
+                    5
+                  </button>
+                </div>
+                <div class="col-12" id="view6">
+                  <button type="button" class="btn btn-outline-secondary btn-views">
+                    6
+                  </button>
+                </div>
+                <div class="col-12" id="view7">
+                  <button type="button" class="btn btn-outline-secondary btn-views">
+                    7
+                  </button>
+                </div>
+                <div class="col-12" id="view8">
+                  <button type="button" class="btn btn-outline-danger btn-views">
+                    Master
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row mb-3 gx-2">
+            <!-- Mixer Channel info -->
+            {%- for channel_id in range(8) %}
+            <div class="col channel-text" id="channel{{ channel_id + 1}}-text">
+              Channel <span id="channel{{ channel_id + 1}}-name">{{ channel_id + 1}}</span>
+              <br/>
+              <span id="channel1-value">-80db</span>
+            </div>
+            {%- endfor %}
+            <div class="col">
+            </div>
+          </div>
+          <div class="row mb-3 gx-2">
+            <!-- lower buttons -->
+            {%- for channel_id in range(8) %}
+            <div class="col" id="lowerbtn{{ channel_id + 1 }}">
+              <button type="button" class="btn btn-outline-secondary btn-lower">
+                <span id="lowerbtn{{ channel_id + 1 }}-text">Mute</span>
+              </button>
+            </div>
+            {%- endfor %}
+            <div class="col" id="shift">
+              <button type="button" class="btn btn-outline-secondary btn-lower">
+                Shift
+              </button>
+            </div>
+          </div>
+          <div class="row mb-3 gx-2 effect-fader" style="margin-top: 40px">
+            <!-- effect slider -->
+            <div class="col">
+              <div class="mix-box" id="reverb-time">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="reverb-hf">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="reverb-bg">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="reverb-lpf">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="reverb-hpf">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="delay-time">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="delay-div">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="delay-fb">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="delay-lpf">
+              </div>
+            </div>
+          </div>
+          <div class="row mb-3 gx-2 channel-text">
+            <!-- effect slider info-->
+            <div class="col">
+              <span id="rev-time-value">0</span><br />
+              Reverb <br />Time
+            </div>
+            <div class="col">
+              <span id="rev-hf-value">0</span><br />
+              Reverb <br />HF Damping
+            </div>
+            <div class="col">
+              <span id="rev-bg-value">0</span><br />
+              Reverb <br />Bass Gain
+            </div>
+            <div class="col">
+              <span id="rev-lpf-value">0</span><br />
+              Reverb <br />LPF
+            </div>
+            <div class="col">
+              <span id="rev-hpf-value">0</span><br />
+              Reverb <br />HPF
+            </div>
+            <div class="col">
+              <span id="delay-time-value">0</span><br />
+              Delay <br />Time
+            </div>
+            <div class="col">
+              <span id="delay-div-value">0</span><br />
+              Delay <br />Divison
+            </div>
+            <div class="col">
+              <span id="delay-fb-value">0</span><br />
+              Delay <br />Feedback
+            </div>
+            <div class="col">
+              <span id="delay-lpf-value">0</span><br />
+              Delay <br />LPF
+            </div>
+          </div>
+        </div>
+        <div class="col-6">
+          <!-- MidiMix -->
+          {%- set channel = namespace(counter=0) %}
+          {%- for x in range(6) %}
+          <div class="row mb-3 gx-2">
+          {%- if x % 2 == 0 %}
+          {%- for y in range(2) %}
+          {%- set channel.counter = channel.counter + 1 %}
+            <div class="col d-flex flex-column justify-content-center align-items-center">
+              <div class="midi-dial reverb-dial" id="reverb-channel{{ channel.counter }}">
+              </div>
+            </div>
+            <div class="col d-flex flex-column justify-content-center align-items-center">
+              <div class="midi-dial delay-dial" id="delay-channel{{ channel.counter }}">
+              </div>
+            </div>
+            <div class="col d-flex flex-column justify-content-center align-items-center">
+              <div class="midi-dial chorus-dial" id="chorus-channel{{ channel.counter }}">
+              </div>
+            </div>
+            <div class="col d-flex flex-column justify-content-center align-items-center">
+              <div class="midi-dial room-dial" id="room-channel{{ channel.counter }}">
+              </div>
+            </div>
+          {%- if y == 0 %}
+            <div class="col-1 d-flex flex-column justify-content-center align-items-center">
+              <label class="channel-text" id="channel-names">
+                Channels<br/>
+                {{ channel.counter }} | {{ channel.counter + 1 }}
+              </label>
+            </div>
+          {%- else %}
+            <div class="col-1 d-flex flex-column justify-content-center align-items-center">
+          {%- if x == 0 %}
+              <button type="button" class="btn btn-danger btn-midimix">
+                ALL
+              </button>
+          {%- elif x == 2 %}
+              <button type="button" class="btn btn-outline-danger btn-midimix">
+                CH -
+              </button>
+          {%- else %}
+              <button type="button" class="btn btn-outline-success btn-midimix">
+                CH +
+              </button>
+          {%- endif %}
+            </div>
+          {%- endif %}
+          {%- endfor %}
+          {%- else %}
+          {%- for y in range(2) %}
+            <div class="col">
+              <span class="channel-text" id="reverb-channel-text{{ channel.counter - (1 - y) }}">
+                0 %
+              </span>
+            </div>
+            <div class="col">
+              <span class="channel-text" id="delay-channel-text{{ channel.counter - (1 - y) }}">
+                0 %
+              </span>
+            </div>
+            <div class="col">
+              <span class="channel-text" id="chorus-channel-text{{ channel.counter - (1 - y) }}">
+                0 %
+              </span>
+            </div>
+            <div class="col">
+              <span class="channel-text" id="room-channel-text{{ channel.counter - (1 - y) }}">
+                0 %
+              </span>
+            </div>
+            <div class="col-1">
+            </div>
+          {%- endfor %}
+          {%- endif %}
+          </div>
+          {%- endfor %}
+          <div class="row mb-3 gx-2" style="margin-top: 35px">
+            <!-- Mute Btns-->
+            {%- for channel_id in range(8) %}
+            <div class="col">
+              <button type="button" class="btn btn-outline-secondary" id="midimix-mute{{ channel_id + 1 }}">
+                Preset
+              </button>
+            </div>
+            {%- endfor %}
+            <div class="col" id="midimix-shift">
+              <button type="button" class="btn btn-outline-secondary">
+                Shift
+              </button>
+            </div>
+          </div>
+          <div class="row mb-3 gx-2" style="margin-top: 35px">
+            <!-- RecArm Btns -->
+            {%- for channel_id in range(8) %}
+            <div class="col">
+              <button type="button" class="btn btn-outline-secondary" id="midimix-recarm{{ channel_id + 1 }}">
+                Preset
+              </button>
+            </div>
+            {%- endfor %}
+            <div class="col">
+            </div>
+          </div>
+          <div class="row mb-3 gx-2 effect-fader" style="margin-top: 29px">
+            <!-- Fader -->
+            <div class="col">
+              <div class="mix-box" id="chorus-detune">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="chorus-density">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="chorus-lpf">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="room-time">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="room-hf">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="room-bg">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="room-lpf">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="room-hpf">
+              </div>
+            </div>
+            <div class="col">
+              <div class="mix-box" id="delay-bpm">
+              </div>
+            </div>
+          </div>
+          <div class="row mb-3 gx-2 channel-text">
+            <!-- Fader Text -->
+            <div class="col">
+              <span id="chorus-detune-value">0</span><br />
+              Chorus<br />
+              Detune
+            </div>
+            <div class="col">
+              <span id="chorus-density-value">0</span><br />
+              Chorus<br />
+              Density
+            </div>
+            <div class="col">
+              <span id="chorus-lpf-value">0</span><br />
+              Chorus<br />
+              LPF
+            </div>
+            <div class="col">
+              <span id="room-time-value">0</span><br />
+              Room<br />
+              Time
+            </div>
+            <div class="col">
+              <span id="room-hf-value">0</span><br />
+              Room<br />
+              HF
+            </div>
+            <div class="col">
+              <span id="room-bg-value">0</span><br />
+              Room<br />
+              Bass Gain
+            </div>
+            <div class="col">
+              <span id="room-lpf-value">0</span><br />
+              Room<br />
+              LPF
+            </div>
+            <div class="col">
+              <span id="room-hpf-value">0</span><br />
+              Room<br />
+              HPF
+            </div>
+            <div class="col">
+              <span id="bpm-value">0</span><br />
+              BPM
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/popper.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/midi2soundcraft.js') }}"></script>
+  </body>
+</html>

@@ -5,3 +5,5 @@ scipy
 mido
 colorama
 pyside6
+flask
+flask-socketio
