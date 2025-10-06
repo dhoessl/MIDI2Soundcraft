@@ -8,3 +8,4 @@ pyside6
 flask
 flask-socketio
 loguru
+gevent

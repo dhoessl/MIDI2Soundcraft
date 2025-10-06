@@ -17,7 +17,7 @@ class GuiController:
         self.parent = parent
 
     def update_settings(self, msg) -> None:
-        logger.debug(f"key: {msg['key']} | data: {msg['data']}")
+        logger.debug(f"key: {msg['key']} | data: {msg['data'] if 'data' in msg else ''}")
         if msg["key"] == "bpm":
             self.update_bpm()
         elif msg["key"] == "channel_fx":

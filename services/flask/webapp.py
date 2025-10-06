@@ -1,5 +1,5 @@
 from flask import Flask, render_template, send_from_directory
-from flask_socketio import SocketIO, emit
+import flask_socketio
 from os import path
 from argparse import Namespace
 from loguru import logger
@@ -17,7 +17,7 @@ class WebApp:
             __name__, root_path=service_path
         )
         self._set_settings(service_path, secret)
-        self.socketio = SocketIO(self.app)
+        self.socketio = flask_socketio.SocketIO(self.app, async_mode="threading")
         self.provide_paths()
         self.thread_controller = None
 
@@ -47,9 +47,10 @@ class WebApp:
             )
 
     def emit_message(self, key: str, data: str = None) -> None:
-        emit(
+        flask_socketio.emit(
             "config_update",
-            {"key": key, "data": data}
+            {"key": key, "data": data},
+            broadcast=True
         )
 
     def update_settings(self, msg: dict) -> None:
