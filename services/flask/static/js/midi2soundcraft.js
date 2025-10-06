@@ -115,12 +115,18 @@ function set_config(key, data) {
   } else if (key == "channel_mix") {
     const mix_element = $("#channel" + data["channel"] + "mix");
     const text_element = $("#channel" + data["channel"] + "value");
-    set_fader(mix_element, data["percent"]);
-    set_fader_text(text_element, data["text"]);
+    if (mix_element.length > 0) {
+      set_fader(mix_element, data["percent"]);
+    }
+    if (text_element.length > 0) {
+      set_fader_text(text_element, data["text"]);
+    }
   } else if (key == "channel_mute") {
     const btn_element = $("#lowerbtn" + data["channel"]);
     const mix_element = $("#channel" + data["channel"] + "mix");
-    set_mute(btn_element, mix_element, data["mute_state"]);
+    if (btn_element.length > 0){
+      set_mute(btn_element, mix_element, data["mute_state"]);
+    }
   } else if (key == "return_fx") {
     const mix_element = $("#channel" + data["channel"] + "mix");
     const text_element = $("#channel" + data["channel"] + "value");

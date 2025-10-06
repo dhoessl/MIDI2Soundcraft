@@ -40,4 +40,9 @@ def get_args() -> Namespace:
         action="store_true",
         help="Runs the GUI as QT App"
     )
+    mutually_app_group.add_argument(
+        "--test-web",
+        action="store_true",
+        help="Run the webservice without further services"
+    )
     return parser.parse_args()

@@ -9,7 +9,12 @@ if __name__ == "__main__":
     define_logger(args.debug)
     update_queue = Queue()
     config = Config()
-    if args.web:
+    if args.test_web:
+        from uuid import uuid4
+        from services.flask.webapp import WebApp
+        app = WebApp(args, config, uuid4())
+        app.socketio.run(app.app, debug=args.debug)
+    elif args.web:
         from uuid import uuid4
         from services.flask.webapp import WebApp
         app = WebApp(args, config, uuid4())
@@ -18,6 +23,7 @@ if __name__ == "__main__":
         )
         thread_controller.start()
         app.socketio.run(app.app, debug=args.debug)
+        thread_controller.terminate()
     elif args.qt:
         from PySide6.QtWidgets import QApplication, QMainWindow
         from services.gui import BaseFrame, WINDOW_CONFIG
@@ -37,4 +43,4 @@ if __name__ == "__main__":
         window.setCentralWidget(widget_main)
         window.show()
         app.exec()
-    thread_controller.terminate()
+        thread_controller.terminate()

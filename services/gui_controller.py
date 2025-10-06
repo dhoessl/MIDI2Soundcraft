@@ -17,7 +17,8 @@ class GuiController:
         self.parent = parent
 
     def update_settings(self, msg) -> None:
-        logger.debug(f"key: {msg['key']} | data: {msg['data'] if 'data' in msg else ''}")
+        msg["data"] = msg["data"] if "data" in msg else {}
+        logger.debug(f"key: {msg['key']} with data: msg['data']")
         if msg["key"] == "bpm":
             self.update_bpm()
         elif msg["key"] == "channel_fx":
@@ -161,23 +162,6 @@ class GuiController:
     def update_mix_channels(self, increment: bool, index: int) -> None:
         for channel in range(index, index + 8):
             self.update_apc_mix_channel(index)
-        # data = {}
-        # for channel in range(index, index + 8):
-        #     value_mix = float(
-        #         self.config.get_channel_value(str(channel), "mix")
-        #     )
-        #     data[channel] = {
-        #         "btns": self.vars.soundcraft_to_midi(value_mix),
-        #         "value": self.formatter.mix(value_mix),
-        #     }
-        # self.gui.change_apc_channels(increment, data)
-        # for lower_button in range(index, 8 + index):
-        #     mute_values = []
-        #     mute_values.append(
-        #         int(self.config.get_channel_value(str(lower_button), "mute"))
-        #     )
-        # for val in mute_values:
-        #     self.gui.set_apc_mute_button(mute_values.index(val), bool(val))
 
     def update_dial_channels(self) -> None:
         data = {}

@@ -23,46 +23,19 @@
             <div class="col" id="viewselect">
               <!-- view select buttons -->
               <div class="row g-3">
+                {%- for view in range(8) %}
                 <div class="col-12">
-                  <button id="view0" type="button" class="btn btn-outline-success btn-views">
+                  <button id="view{{ view }}" type="button" class="btn btn-outline-secondary btn-views">
+                    {%- if view == 0 %}
                     Mix
-                  </button>
-                </div>
-                <div class="col-12">
-                  <button id="view1" type="button" class="btn btn-outline-secondary btn-views">
-                    2
-                  </button>
-                </div>
-                <div class="col-12">
-                  <button id="view2" type="button" class="btn btn-outline-secondary btn-views">
-                    3
-                  </button>
-                </div>
-                <div class="col-12">
-                  <button id="view3" type="button" class="btn btn-outline-secondary btn-views">
-                    4
-                  </button>
-                </div>
-                <div class="col-12">
-                  <button id="view4" type="button" class="btn btn-outline-secondary btn-views">
-                    5
-                  </button>
-                </div>
-                <div class="col-12">
-                  <button id="view5" type="button" class="btn btn-outline-secondary btn-views">
-                    6
-                  </button>
-                </div>
-                <div class="col-12">
-                  <button id="view6" type="button" class="btn btn-outline-secondary btn-views">
-                    7
-                  </button>
-                </div>
-                <div class="col-12">
-                  <button id="view7" type="button" class="btn btn-outline-danger btn-views">
+                    {%- elif view == 7 %}
                     Master
+                    {%- else %}
+                    {{ view + 1}}
+                    {%- endif %}
                   </button>
                 </div>
+                {%- endfor %}
               </div>
             </div>
           </div>

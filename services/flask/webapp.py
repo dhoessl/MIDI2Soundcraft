@@ -1,5 +1,5 @@
 from flask import Flask, render_template, send_from_directory
-import flask_socketio
+from flask_socketio import SocketIO
 from os import path
 from argparse import Namespace
 from loguru import logger
@@ -10,6 +10,7 @@ from services.core import ConfigVars, OutputFormatter, Config
 class WebApp:
     def __init__(self, args: Namespace, config: Config, secret) -> None:
         service_path = path.split(path.abspath(__file__))[0]
+        self.args = args
         self.config = config
         self.vars = ConfigVars()
         self.formatter = OutputFormatter()
@@ -17,7 +18,7 @@ class WebApp:
             __name__, root_path=service_path
         )
         self._set_settings(service_path, secret)
-        self.socketio = flask_socketio.SocketIO(self.app, async_mode="threading")
+        self.socketio = SocketIO(self.app)
         self.provide_paths()
         self.thread_controller = None
 
@@ -29,7 +30,8 @@ class WebApp:
         @self.socketio.on("connect")
         def connect() -> None:
             logger.info("New Client connected!")
-            self.update_settings({"key": "init"})
+            if not self.args.test_web:
+                self.update_settings({"key": "init"})
 
         @self.socketio.on("disconnect")
         def disconnect(reason) -> None:
@@ -47,7 +49,7 @@ class WebApp:
             )
 
     def emit_message(self, key: str, data: str = None) -> None:
-        flask_socketio.emit(
+        self.socketio.emit(
             "config_update",
             {"key": key, "data": data},
             broadcast=True
