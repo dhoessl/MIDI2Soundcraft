@@ -18,28 +18,35 @@ div.mix-box {
   height: 100%;
 }
 
-div.mix-box[id^="reverb-"] {
+div.mix-box[id^="fx0"] {
   background: linear-gradient(to top, blue 0%, transparent 0%, transparent 100%);
   border-left: 1px solid blue;
   border-right: 1px solid blue;
   border-top: 1px solid blue;
 }
 
-div.mix-box[id^="delay-"] {
+div.mix-box[id^="fx1"] {
   background: linear-gradient(to top, yellow 0%, transparent 0%, transparent 100%);
   border-left: 1px solid yellow;
   border-right: 1px solid yellow;
   border-top: 1px solid yellow;
 }
 
-div.mix-box[id^="chorus-"] {
+div.mix-box[id="delay-bpm"] {
+  background: linear-gradient(to top, yellow 0%, transparent 0%, transparent 100%);
+  border-left: 1px solid yellow;
+  border-right: 1px solid yellow;
+  border-top: 1px solid yellow;
+}
+
+div.mix-box[id^="fx2"] {
   background: linear-gradient(to top, #9933ff 0%, transparent 0%, transparent 100%);
   border-left: 1px solid #9933ff;
   border-right: 1px solid #9933ff;
   border-top: 1px solid #9933ff;
 }
 
-div.mix-box[id^="room-"] {
+div.mix-box[id^="fx3"] {
   background: linear-gradient(to top, #00CC00 0%, transparent 0%, transparent 100%);
   border-left: 1px solid #00CC00;
   border-right: 1px solid #00CC00;

@@ -1,36 +1,39 @@
 from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO, emit
 from os import path
+from argparse import Namespace
+from loguru import logger
+
+from services.core import ConfigVars, OutputFormatter, Config
 
 
 class WebApp:
-    def __init__(self, logger, args, config) -> None:
-        service_path = path.join(
-            path.split(path.abspath(__file__))[0],
-            "flask"
-        )
+    def __init__(self, args: Namespace, config: Config, secret) -> None:
+        service_path = path.split(path.abspath(__file__))[0]
         self.config = config
+        self.vars = ConfigVars()
+        self.formatter = OutputFormatter()
         self.app = Flask(
             __name__, root_path=service_path
         )
-        self._set_settings(service_path)
+        self._set_settings(service_path, secret)
         self.socketio = SocketIO(self.app)
         self.provide_paths()
         self.thread_controller = None
 
-    def _set_settings(self, service_path) -> None:
-        self.app.config["SECRET_KEY"] = "test!secrect"
+    def _set_settings(self, service_path: str, secret: str) -> None:
+        self.app.config["SECRET_KEY"] = secret
         self.app.config["APPLICATION_ROOT"] = service_path
 
     def provide_paths(self) -> None:
         @self.socketio.on("connect")
-        def connect(self) -> None:
-            print("New Client connected. Sending config")
-            emit("init_config", {"msg": "dies das ananas"})
+        def connect() -> None:
+            logger.info("New Client connected!")
+            self.update_settings({"key": "init"})
 
         @self.socketio.on("disconnect")
         def disconnect(reason) -> None:
-            print(f"Client disconnected. Reason: {reason}")
+            logger.warning(f"Client disconnected. Reason: {reason}")
 
         @self.app.route("/")
         def index():
@@ -52,6 +55,8 @@ class WebApp:
     def update_settings(self, msg: dict) -> None:
         if msg["key"] == "bpm":
             self.update_bpm()
+        elif msg["key"] == "master":
+            self.update_master()
         elif msg["key"] == "channel_fx":
             self.update_channel_fx(
                 msg["data"]["channel"],
@@ -60,8 +65,6 @@ class WebApp:
             )
         elif msg["key"] == "channel":
             self.update_apc_mix_channel(msg["data"]["channel"])
-        elif msg["key"] == "master":
-            self.update_master()
         elif msg["key"] == "fxmix":
             self.update_fx_return(msg["data"]["channel"])
         elif msg["key"] == "fxpar":
@@ -86,7 +89,6 @@ class WebApp:
             for x in range(8):
                 self.update_apc_mix_channel(x)
             self.update_dial_channels()
-            self.update_dial_channels()
             for x in range(5):
                 self.update_fx_params("0", f"par{x + 1}")
             for x in range(4):
@@ -102,51 +104,84 @@ class WebApp:
 
     def update_bpm(self) -> None:
         bpm = int(self.config.get_bpm())
-        # TODO: make it %
         self.emit_message("bpm", f"{bpm}")
 
     def update_master(self) -> None:
         master = float(self.config.get_master())
-        self.emit_message("master", f"{master}")
+        self.emit_message(
+            "master",
+            {
+                "percent": self.vars.soundcraft_to_percent(master),
+                "text": self.formatter.mix(master)
+            }
+        )
 
     def update_channel_fx(
-        self,
-        channel: str | int,
-        fx: str | int,
-        key: str | int
+        self, channel: str | int, fx: str | int, key: str | int
     ) -> None:
         if key != "value":
             return None
-        value = float(self.config.get_channel_fx_value(
-            str(channel), str(fx), str(key)
-        ))
-        self.gui.change_dial_value(
-            int(channel), int(fx),
-            int(round(float(self.vars.soundcraft127(value)), 0)),
-            self.formatter.mix(value)
+        value = float(
+            self.config.get_channel_fx_value(
+                str(channel), str(fx), str(key)
+            )
+        )
+        self.emit_message(
+            "channel_fx",
+            {
+                "channel": str(channel),
+                "fx": str(fx),
+                "percent": self.vars.soundcraft_to_percent(value),
+                "text": self.formatter.mix(value)
+            }
         )
 
     def update_apc_mix_channel(self, channel: str | int) -> None:
         value_mix = float(self.config.get_channel_value(str(channel), "mix"))
         value_mute = int(self.config.get_channel_value(str(channel), "mute"))
-        self.gui.set_apc_channel_value(
-            int(channel), self.vars.soundcraft_to_midi(value_mix),
-            self.formatter.mix(value_mix)
+        self.emit_message(
+            "channel_mix",
+            {
+                "channel": str(channel),
+                "percent": self.vars.soundcraft_to_percent(value_mix),
+                "text": self.formatter.mix(value_mix)
+            }
         )
-        self.gui.set_apc_mute_button(int(channel), value_mute)
+        self.emit_message(
+            "channel_mute",
+            {
+                "channel": str(channel),
+                "mute_state": value_mute
+            }
+        )
 
     def update_fx_return(self, channel: str | int) -> None:
         value = float(self.config.get_fx_value(str(channel), "mix"))
-        self.gui.set_apc_channel_value(
-            int(channel), self.vars.soundcraft_to_midi(value),
-            self.formatter.mix(value)
+        self.emit_message(
+            "return_fx",
+            {
+                "channel": str(channel),
+                "percent": self.vars.soundcraft_to_percent(value),
+                "text": self.formatter.mix(value)
+            }
         )
 
     def set_apc_side_button(self, button_id: int | str) -> None:
-        self.gui.set_apc_side_button(int(button_id))
+        self.emit_message(
+            "toggle_apc_side",
+            {
+                "button": str(button_id)
+            }
+        )
 
     def set_shift_button(self, state: bool, controller: str) -> None:
-        self.gui.set_shift_button(state, controller)
+        self.emit_message(
+            "shift",
+            {
+                "state": state,
+                "controller": controller
+            }
+        )
 
     def update_fx_params(self, channel: str | int, key: str) -> None:
         try:
@@ -155,7 +190,7 @@ class WebApp:
             delay_time = 1
         try:
             value = float(self.config.get_fx_value(str(channel), key))
-            value_slider = round(float(self.vars.soundcraft127(value)), 0)
+            value_slider = self.vars.soundcraft_to_percent(value)
             value_text = self.formatter.fx_parval(
                 channel, key, value, delay_time
             )
@@ -165,47 +200,19 @@ class WebApp:
             # filtered on config level
             # TODO: create filter for notifications too
             return None
-        if int(channel) == 0:
-            self.gui.change_apc_slider_value(
-                int(key[-1:]) - 1,
-                value_slider, value_text
-            )
-        elif int(channel) == 1:
-            self.gui.change_apc_slider_value(
-                int(key[-1:]) + 4,
-                value_slider, value_text
-            )
-        elif int(channel) == 2:
-            self.gui.change_midimix_slider_value(
-                int(key[-1:]) - 1,
-                value_slider, value_text
-            )
-        elif int(channel) == 3:
-            self.gui.change_midimix_slider_value(
-                int(key[-1:]) + 2,
-                value_slider, value_text
-            )
+        self.emit_message(
+            "fx_params",
+            {
+                "fx": channel,
+                "param": key,
+                "percent": value_slider,
+                "text": value_text
+            }
+        )
 
     def update_mix_channels(self, increment: bool, index: int) -> None:
         for channel in range(index, index + 8):
             self.update_apc_mix_channel(index)
-        # data = {}
-        # for channel in range(index, index + 8):
-        #     value_mix = float(
-        #         self.config.get_channel_value(str(channel), "mix")
-        #     )
-        #     data[channel] = {
-        #         "btns": self.vars.soundcraft_to_midi(value_mix),
-        #         "value": self.formatter.mix(value_mix),
-        #     }
-        # self.gui.change_apc_channels(increment, data)
-        # for lower_button in range(index, 8 + index):
-        #     mute_values = []
-        #     mute_values.append(
-        #         int(self.config.get_channel_value(str(lower_button), "mute"))
-        #     )
-        # for val in mute_values:
-        #     self.gui.set_apc_mute_button(mute_values.index(val), bool(val))
 
     def update_dial_channels(self) -> None:
         data = {}
@@ -216,8 +223,7 @@ class WebApp:
                     str(channel), str(fx), "value"
                 ))
                 data[channel][fx] = {
-                    "value": round(float(self.vars.soundcraft127(value)), 0),
-                    "label": self.formatter.mix(value)
+                    "value": self.vars.soundcraft_to_percent(value),
+                    "text": self.formatter.mix(value)
                 }
-        self.gui.change_dial_channels(data)
-        pass
+        self.emit_message("channel_dials", data)

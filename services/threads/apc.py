@@ -1,13 +1,14 @@
 from akai_pro_py import controllers
 from soundcraft_ui16 import MixerSender
+
 from mido import get_output_names
 from time import sleep
 from re import match
-from logging import getLogger
+from loguru import logger
 from threading import Thread, Event
 from argparse import Namespace
-from services.config import APC_DISCOVER_STRING, Config, MASTER_LOCK
-from services.formatter import ConfigVars
+
+from services.core import APC_DISCOVER_STRING, Config, MASTER_LOCK, ConfigVars
 
 
 class ApcControllerThread:
@@ -16,10 +17,8 @@ class ApcControllerThread:
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        logger_name: str = "APC",
         parent: None = None
     ) -> None:
-        self.logger = getLogger(logger_name)
         self.args = args
         self.midi_string = self.get_midi_string(APC_DISCOVER_STRING)
         self.sender = sender
@@ -50,7 +49,7 @@ class ApcControllerThread:
             ):
                 continue
             elif not self.midi_string:
-                self.logger.warning("No Port for APC found")
+                logger.warning("No Port for APC found")
                 self.midi_string = \
                     self.get_midi_string(APC_DISCOVER_STRING)
                 sleep(.5)
@@ -64,13 +63,13 @@ class ApcControllerThread:
                 try:
                     self.apc = APC(
                         self.midi_string, self.sender, self.config,
-                        self.args, self.logger.name, self.parent
+                        self.args, self.parent
                     )
-                    self.logger.warning(f"{self.apc.name} => created!")
+                    logger.info(f"{self.apc.name} => created!")
                     self.apc.update_settings({"key": "init"})
                     sleep(.5)
                 except:  # noqa: E722
-                    self.logger.critical("APC => failed!")
+                    logger.critical("APC => failed!")
                     sleep(1)
 
     def start(self) -> None:
@@ -81,7 +80,7 @@ class ApcControllerThread:
             self.keepalive_thread.join()
 
     def terminate(self) -> None:
-        self.logger.warning("APC Controller => Stopping")
+        logger.warning("APC Controller => Stopping")
         if self.apc:
             self.apc.reset(fast=True)
         self.exit_flag.set()
@@ -95,11 +94,9 @@ class APC(controllers.APCMinimkii):
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        logger_name: str = "APC",
         parent: None = None
     ) -> None:
         super().__init__(midi_string, midi_string)
-        self.logger = getLogger(logger_name)
         self.args = args
         self.sender = sender
         self.config = config
@@ -134,11 +131,11 @@ class APC(controllers.APCMinimkii):
             self.midimix_shift = msg["data"]["state"]
         else:
             if self.args.verbose:
-                self.logger.error(f"{self.name} => cant process\n{msg}")
+                logger.error(f"{self.name} => cant process\n{msg}")
 
     def on_ready(self) -> None:
         self.ready = True
-        self.logger.warning("{self.name} is ready")
+        logger.info("{self.name} is ready")
 
     def on_event(self, event) -> None:
         if isinstance(event, self.GridButton):
@@ -160,7 +157,7 @@ class APC(controllers.APCMinimkii):
                 if event.x == 4 and event.y == 7:
                     self.master_lock_entry = []
                     self.gridbuttons.set_led(4, 7, "red", "bright")
-                    self.logger.warning("Master => lock => reset")
+                    logger.warning("Master => lock => reset")
                     return None
                 if self.master_lock_entry == self.master_lock:
                     return None
@@ -169,14 +166,14 @@ class APC(controllers.APCMinimkii):
                     self.master_lock_entry.append((event.x, event.y))
                     if self.master_lock == self.master_lock_entry:
                         self.gridbuttons.set_led(4, 7, "green", "bright")
-                        self.logger.warning("Master => lock => unlock")
+                        logger.warning("Master => lock => unlock")
                     return None
             elif (
                 self.display_view == 7
                 and event.state
                 and self.master_lock_entry != self.master_lock
             ):
-                self.logger.error("Master => lock => locked")
+                logger.warning("Master => lock => locked")
                 return None
             elif (
                 self.display_view == 7

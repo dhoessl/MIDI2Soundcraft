@@ -1,7 +1,6 @@
-from .formatter import ConfigVars, OutputFormatter
-from .gui import BaseFrame
-from .config import Config
-from logging import getLogger
+from services.gui import BaseFrame
+from services.core import Config, ConfigVars, OutputFormatter
+from loguru import logger
 
 
 class GuiController:
@@ -9,18 +8,16 @@ class GuiController:
         self,
         gui: BaseFrame,
         config: Config,
-        logger_name: str = "GuiController",
         parent: None = None
     ) -> None:
-        self.logger = getLogger(logger_name)
         self.gui = gui
         self.vars = ConfigVars()
         self.config = config
         self.formatter = OutputFormatter()
         self.parent = parent
-        self.update_settings({"key": "init"})
 
     def update_settings(self, msg) -> None:
+        logger.debug(f"key: {msg['key']} | data: {msg['data']}")
         if msg["key"] == "bpm":
             self.update_bpm()
         elif msg["key"] == "channel_fx":

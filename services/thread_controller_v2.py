@@ -1,49 +1,49 @@
 from soundcraft_ui16 import MixerListener, MixerSender
 from queue import Queue
-from logging import getLogger
 from argparse import Namespace
 from time import sleep
 from datetime import datetime
-from .config import MIXER_ADDRESS, MIXER_PORT, Config
-from .threads import (
+from loguru import logger
+
+from services.core import (
+    MIXER_ADDRESS, MIXER_PORT, Config, wait_connect
+)
+from services.threads import (
     UpdateConfigThread, ApcControllerThread, MidimixControllerThread,
 )
-from .gui import BaseFrame
-from .webapp import WebApp
-from .wifi import wait_connect
-from .gui_controller import GuiController
+from services.gui import BaseFrame
+from services.gui_controller import GuiController
+from services.flask.webapp import WebApp
 
 
 class ThreadController:
     def __init__(
         self, update_queue: Queue, config: Config, args: Namespace,
-        gui: BaseFrame | WebApp, logger_name: str = "ThreadController"
+        gui: BaseFrame | WebApp
     ) -> None:
         # vars
-        self.logger = getLogger(logger_name)
         self.update_queue = update_queue
         self.args = args
         # Threads
         self.sender = MixerSender(
-            MIXER_ADDRESS, MIXER_PORT,
-            logger_name=self.logger.name
+            MIXER_ADDRESS, MIXER_PORT
         )
         self.listener = MixerListener(
             MIXER_ADDRESS, MIXER_PORT,
-            queue=update_queue, logger_name=self.logger.name
+            queue=update_queue
         )
         self.update_thread = UpdateConfigThread(
-            update_queue, config, self.logger.name, self
+            update_queue, config, self
         )
         self.apc_keepalive_thread = ApcControllerThread(
-            self.sender, config, args, self.logger.name, self
+            self.sender, config, args, self
         )
         self.midimix_keepalive_thread = MidimixControllerThread(
-            self.sender, config, args, self.logger.name, self
+            self.sender, config, args, self
         )
         if type(gui) is BaseFrame:
             self.gui_controller = GuiController(
-                gui, config, self.logger.name, self
+                gui, config, self
             )
         elif type(gui) is WebApp:
             self.gui_controller = gui
@@ -66,7 +66,7 @@ class ThreadController:
     def start(self) -> None:
         self._check_network_connection()
         setup_listener = True
-        self.logger.info("Starting listener...")
+        logger.info("Starting listener...")
         while setup_listener:
             self.listener.start()
             self._check_mixer_connection(self.listener)
@@ -76,29 +76,29 @@ class ThreadController:
                 # we need to clean stuff up
                 self.listener.terminate()
                 self.listener = MixerListener(
-                    MIXER_ADDRESS, MIXER_PORT,
-                    queue=self.update_queue, logger_name=self.logger.name
+                    MIXER_ADDRESS, MIXER_PORT, queue=self.update_queue
                 )
                 sleep(.5)
-                self.logger.warning("Listener did not send messages. Restart")
+                logger.warning("Listener did not send messages. Restart")
             else:
                 setup_listener = False
-        self.logger.info("Listener => ready!")
-        self.logger.info("Sender => starting")
+        logger.info("Listener => ready!")
+        logger.info("Sender => starting")
         self.sender.start()
         self._check_mixer_connection(self.sender)
-        self.logger.info("Sender => ready")
-        self.logger.info("Update Thread => starting")
+        logger.info("Sender => ready")
+        logger.info("Update Thread => starting")
         self.update_thread.start()
         self._wait_for_updates()
-        self.logger.info("Update Thread => Ready")
-        self.logger.info("APC => Starting")
+        logger.info("Update Thread => Ready")
+        logger.info("APC => Starting")
         self.apc_keepalive_thread.start()
-        self.logger.info("Midimix => Starting")
+        logger.info("Midimix => Starting")
         self.midimix_keepalive_thread.start()
-        # self.logger.info("Gui => Starting")
-        # self.gui_controller.start()
-        self.logger.info(
+        if type(self.gui_controller) is GuiController:
+            logger.info("Update GUI => Starting")
+            self.gui_controller.update_settings({"key": "init"})
+        logger.info(
             "All Functions are now indepentend! "
             "Happy to help => Back to the control room."
         )
@@ -106,19 +106,19 @@ class ThreadController:
     def _wait_for_updates(self) -> None:
         while self.update_queue.qsize() > 0:
             sleep(.2)
-        self.logger.warning("Update Thread => All updates read")
+        logger.info("Update Thread => All updates read")
 
     def _check_mixer_connection(self, connection) -> None:
         if self.args.skip_network_check:
             return None
         start = datetime.now()
         while not connection.connected:
-            self.logger.warning(
+            logger.warning(
                 "Waiting for Mixer connection ... "
                 f"{(datetime.now() - start).seconds}s"
             )
             sleep(.5)
-        self.logger.info(
+        logger.info(
             f"Mixer connected. Took {(datetime.now() - start).seconds} seconds"
         )
 
@@ -126,10 +126,7 @@ class ThreadController:
         """ Check if connected to soundcraft wifi
             TODO: Improve since its blocking the programm
         """
-        wait_connect(
-            self.args.skip_network_check,
-            logger_name=self.logger.name
-        )
+        wait_connect(self.args.skip_network_check)
 
     def notify_update(self, key: str, data: dict = {}) -> None:
         if key == "bpm":

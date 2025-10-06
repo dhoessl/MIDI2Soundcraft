@@ -1,14 +1,10 @@
 from subprocess import Popen, PIPE, run
 from time import sleep
-from logging import getLogger
+from loguru import logger
 
 
-def wait_connect(
-    skip_check: bool = False,
-    logger_name: str = "networking"
-) -> None:
+def wait_connect(skip_check: bool = False) -> None:
     # Dirty Quickfix
-    logger = getLogger(logger_name)
     soundcraft_network_name = run(
         "nmcli con show | grep -i 'soundcraft' | awk -F'  ' '{ printf $1 }'",
         shell=True, capture_output=True

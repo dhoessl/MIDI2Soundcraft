@@ -4,21 +4,13 @@ from akai_pro_py import controllers
 from time import sleep
 from re import match
 from mido import get_output_names
-from colorama import Fore
-from logging import getLogger, INFO
-from .formatter import ConfigVars
+from loguru import logger
+from services.core import ConfigVars
 
 
 class APC(controllers.APCMinimkii):
-    def __init__(
-            self, midi_string: str,
-            state: bool, controller=None,
-            logname: str = "APC"
-    ) -> None:
+    def __init__(self, midi_string: str, state: bool, controller=None) -> None:
         super().__init__(midi_string, midi_string)
-        self.logger = getLogger(logname)
-        if self.logger.level < 20:
-            self.logger.setLevel(INFO)
         self.midi_string = midi_string
         self.controller = controller
         self.ready_dispatch = self.on_ready
@@ -29,18 +21,18 @@ class APC(controllers.APCMinimkii):
         self.vars = ConfigVars()
 
     def on_ready(self) -> None:
-        self.logger.warning(f"{self.name} Ready Check")
+        logger.warning(f"{self.name} Ready Check")
         if not self.mixer_is_connected:
             for x in range(1, 7):
                 self.gridbuttons.set_led(x, x, "red", "bright")
                 self.gridbuttons.set_led(x, 7-x, "red", "bright")
-                self.logger.critical(f"{self.name} <> Mixer not connected")
+                logger.critical(f"{self.name} <> Mixer not connected")
         self.ready = True
-        self.logger.info(f"{Fore.GREEN}{self.name} Ready Check completed!")
+        logger.info("Ready Check completed!")
 
     def on_event(self, event) -> None:
         if not self.mixer_is_connected:
-            self.logger.error(f"{self.name} -> Not connected - Abort Event")
+            logger.error(f"{self.name} -> Not connected - Abort Event")
         if isinstance(event, self.GridButton):
             self.controller.apc_grid_event(event)
         elif isinstance(event, self.SideButton):
@@ -140,15 +132,8 @@ class APC(controllers.APCMinimkii):
 
 
 class Midimix(controllers.MIDIMix):
-    def __init__(
-            self, midi_string: str,
-            state: bool, controller=None,
-            logname: str = "MidiMix"
-    ) -> None:
+    def __init__(self, midi_string: str, state: bool, controller=None) -> None:
         super().__init__(midi_string, midi_string)
-        self.logger = getLogger(logname)
-        if self.logger.level < 20:
-            self.logger.setLevel(INFO)
         self.midi_string = midi_string
         self.controller = controller
         self.event_dispatch = self.on_event
@@ -159,7 +144,7 @@ class Midimix(controllers.MIDIMix):
         self.vars = ConfigVars()
 
     def on_ready(self) -> None:
-        self.logger.warning(f"{self.name} Ready Check")
+        logger.warning(f"{self.name} Ready Check")
         if not self.mixer_is_connected:
             counter = 0
             while self.is_alive() and counter in range(20):
@@ -172,9 +157,9 @@ class Midimix(controllers.MIDIMix):
                     self.recarmbuttons.set_led(x, 0)
                 sleep(0.2)
                 counter += 1
-            self.logger.critical(f"{self.name} Mixer not connected")
+            logger.critical(f"{self.name} Mixer not connected")
         self.ready = True
-        self.logger.info(f"{Fore.GREEN}{self.name} Ready Check completed!")
+        logger.info(f"{self.name} Ready Check completed!")
         for preset in self.controller.config_presets:
             if preset < 8:
                 self.mutebuttons.set_led(preset, 1)
@@ -183,7 +168,7 @@ class Midimix(controllers.MIDIMix):
 
     def on_event(self, event) -> None:
         if not self.mixer_is_connected:
-            self.logger.error(f"{self.name} -> Not connected - Abort Event")
+            logger.error(f"{self.name} -> Not connected - Abort Event")
         if isinstance(event, self.Knob):
             self.controller.midi_mix_knob_event(event)
         if isinstance(event, self.Fader):
