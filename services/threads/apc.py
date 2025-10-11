@@ -1,9 +1,90 @@
 from akai_pro_py import controllers
 from soundcraft_ui16 import MixerSender
-from logging import getLogger
+
+from mido import get_output_names
+from time import sleep
+from re import match
+from loguru import logger
+from threading import Thread, Event
 from argparse import Namespace
-from services.config import Config, MASTER_LOCK
-from services.formatter import ConfigVars
+
+from services.core import APC_DISCOVER_STRING, Config, MASTER_LOCK, ConfigVars
+
+
+class ApcControllerThread:
+    def __init__(
+        self,
+        sender: MixerSender,
+        config: Config,
+        args: Namespace,
+        parent: None = None
+    ) -> None:
+        self.args = args
+        self.midi_string = self.get_midi_string(APC_DISCOVER_STRING)
+        self.sender = sender
+        self.config = config
+        self.parent = parent
+        self.apc = None
+        self.keepalive_thread = Thread(
+            target=self._thread,
+            args=()
+        )
+        self.exit_flag = Event()
+
+    def get_midi_string(self, search) -> str:
+        for port in get_output_names():
+            matching = match(search, port)
+            if matching:
+                return matching.group()
+        return None
+
+    def is_alive(self) -> bool:
+        return True if self.midi_string in get_output_names() else False
+
+    def _thread(self) -> None:
+        while not self.exit_flag.is_set():
+            if (
+                self.apc
+                and self.is_alive()
+            ):
+                continue
+            elif not self.midi_string:
+                logger.warning("No Port for APC found")
+                self.midi_string = \
+                    self.get_midi_string(APC_DISCOVER_STRING)
+                sleep(.5)
+            elif (
+                not self.apc
+                or (
+                    self.apc
+                    and not self.is_alive()
+                )
+            ):
+                try:
+                    self.apc = APC(
+                        self.midi_string, self.sender, self.config,
+                        self.args, self.parent
+                    )
+                    logger.info(f"{self.apc.name} => created!")
+                    self.apc.update_settings({"key": "init"})
+                    sleep(.5)
+                except:  # noqa: E722
+                    logger.critical("APC => failed!")
+                    sleep(1)
+
+    def start(self) -> None:
+        self.keepalive_thread.start()
+
+    def join(self) -> None:
+        if self.keepalive_thread.is_alive():
+            self.keepalive_thread.join()
+
+    def terminate(self) -> None:
+        logger.warning("APC Controller => Stopping")
+        if self.apc:
+            self.apc.reset(fast=True)
+        self.exit_flag.set()
+        self.join()
 
 
 class APC(controllers.APCMinimkii):
@@ -13,11 +94,9 @@ class APC(controllers.APCMinimkii):
         sender: MixerSender,
         config: Config,
         args: Namespace,
-        parent: None,
-        logger_name: str = "APC"
+        parent: None = None
     ) -> None:
         super().__init__(midi_string, midi_string)
-        self.logger = getLogger(logger_name)
         self.args = args
         self.sender = sender
         self.config = config
@@ -52,11 +131,11 @@ class APC(controllers.APCMinimkii):
             self.midimix_shift = msg["data"]["state"]
         else:
             if self.args.verbose:
-                self.logger.error(f"{self.name} => cant process\n{msg}")
+                logger.error(f"{self.name} => cant process\n{msg}")
 
     def on_ready(self) -> None:
         self.ready = True
-        self.logger.warning("{self.name} is ready")
+        logger.info("{self.name} is ready")
 
     def on_event(self, event) -> None:
         if isinstance(event, self.GridButton):
@@ -78,7 +157,7 @@ class APC(controllers.APCMinimkii):
                 if event.x == 4 and event.y == 7:
                     self.master_lock_entry = []
                     self.gridbuttons.set_led(4, 7, "red", "bright")
-                    self.logger.warning("Master => lock => reset")
+                    logger.warning("Master => lock => reset")
                     return None
                 if self.master_lock_entry == self.master_lock:
                     return None
@@ -87,14 +166,14 @@ class APC(controllers.APCMinimkii):
                     self.master_lock_entry.append((event.x, event.y))
                     if self.master_lock == self.master_lock_entry:
                         self.gridbuttons.set_led(4, 7, "green", "bright")
-                        self.logger.warning("Master => lock => unlock")
+                        logger.warning("Master => lock => unlock")
                     return None
             elif (
                 self.display_view == 7
                 and event.state
                 and self.master_lock_entry != self.master_lock
             ):
-                self.logger.error("Master => lock => locked")
+                logger.warning("Master => lock => locked")
                 return None
             elif (
                 self.display_view == 7

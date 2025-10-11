@@ -1,0 +1,100 @@
+div#mixer {
+  height: 425px;
+}
+
+div.effect-fader{
+  height: 300px;
+}
+
+.channel-text {
+  color: #FFFFFF;
+}
+
+div.mix-box {
+  background: linear-gradient(to top, green 0%, transparent 0%, transparent 100%);
+  border-left: 1px solid gray;
+  border-right: 1px solid gray;
+  border-top: 1px solid gray;
+  height: 100%;
+}
+
+div.mix-box[id^="fx0"] {
+  background: linear-gradient(to top, blue 0%, transparent 0%, transparent 100%);
+  border-left: 1px solid blue;
+  border-right: 1px solid blue;
+  border-top: 1px solid blue;
+}
+
+div.mix-box[id^="fx1"] {
+  background: linear-gradient(to top, yellow 0%, transparent 0%, transparent 100%);
+  border-left: 1px solid yellow;
+  border-right: 1px solid yellow;
+  border-top: 1px solid yellow;
+}
+
+div.mix-box[id="delay-bpm"] {
+  background: linear-gradient(to top, yellow 0%, transparent 0%, transparent 100%);
+  border-left: 1px solid yellow;
+  border-right: 1px solid yellow;
+  border-top: 1px solid yellow;
+}
+
+div.mix-box[id^="fx2"] {
+  background: linear-gradient(to top, #9933ff 0%, transparent 0%, transparent 100%);
+  border-left: 1px solid #9933ff;
+  border-right: 1px solid #9933ff;
+  border-top: 1px solid #9933ff;
+}
+
+div.mix-box[id^="fx3"] {
+  background: linear-gradient(to top, #00CC00 0%, transparent 0%, transparent 100%);
+  border-left: 1px solid #00CC00;
+  border-right: 1px solid #00CC00;
+  border-top: 1px solid #00CC00;
+}
+
+button.btn-views {
+  width: 90%;
+  height: 100%;
+}
+
+button.btn-midimix {
+  width: 90%;
+  height: 50%;
+}
+
+button.btn-lower {
+  height: 150%;
+}
+
+div.midi-dial {
+  border-radius: 50%;
+  width: 85px;
+  height: 85px;
+  outline-offset: -1px;
+  box-sizing: border-box;
+}
+
+div.reverb-dial {
+  background: linear-gradient(to top, blue 0%, transparent 0%, transparent 100%);
+  outline: 1px solid blue;
+}
+
+div.delay-dial {
+  background: linear-gradient(to top, yellow 0%, transparent 0%, transparent 100%);
+  outline: 1px solid yellow;
+}
+
+div.chorus-dial {
+  background: linear-gradient(to top, #9933ff 0%, transparent 0%, transparent 100%);
+  outline: 1px solid #9933ff;
+}
+
+div.room-dial {
+  background: linear-gradient(to top, #00CC00 0%, transparent 0%, transparent 100%);
+  outline: 1px solid #00CC00;
+}
+
+body {
+  background: #000000;
+}

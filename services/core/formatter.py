@@ -150,6 +150,13 @@ class ConfigVars:
         """
         return (val + 1) / 8
 
+    def soundcraft_to_percent(self, val: float) -> int:
+        """ Format a given value from soundcraft values to percent (0 - 100)
+            Soundcraft: 0 - 1
+            output: 0.0 - 100.0
+        """
+        return round(val * 100, 1)
+
 
 class OutputFormatter:
     def __init__(self):

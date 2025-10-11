@@ -1,9 +1,10 @@
 from queue import Queue
 from threading import Thread, Event
-from logging import getLogger
 from re import match
 from time import sleep
-from services.config import Config
+from loguru import logger
+
+from services.core import Config
 
 
 class UpdateConfigThread:
@@ -15,10 +16,8 @@ class UpdateConfigThread:
         self,
         update_queue: Queue,
         config: Config,
-        logger_name: str = "UpdateConfigThread",
         parent: None = None  # cant specify because it would be circular import
     ) -> None:
-        self.logger = getLogger(logger_name)
         self.parent = parent
         self.thread = Thread(
             target=self._thread, args=(update_queue, config)
@@ -26,13 +25,13 @@ class UpdateConfigThread:
         self.exit_flag = Event()
 
     def _thread(self, update_queue: Queue, config: Config) -> None:
-        self.logger.info("Starting Update Thread")
+        logger.info("Starting Update Thread")
         self_init = True
         while not self.exit_flag.is_set():
             if update_queue.qsize() == 0:
                 if self_init:
                     self_init = False
-                    self.logger.info(
+                    logger.info(
                         "Update Thread init complete"
                         " - Notifications will be send now"
                     )

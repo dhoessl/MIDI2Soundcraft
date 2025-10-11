@@ -1,5 +1,6 @@
+# TODO: args need types
 from .formatter import OutputFormatter, ConfigVars
-from logging import getLogger
+from loguru import logger
 from os import path
 from pathlib import Path
 from json import dumps, loads
@@ -46,9 +47,23 @@ def remove_preset(preset_id) -> None:
         fp.write(dumps(config))
 
 
+def save_preset(button, preset) -> None:
+    config = {}
+    if path.exists(PRESET_FILE):
+        # Read existing config
+        with open(PRESET_FILE, "r") as fp:
+            config = loads(fp.read())
+    else:
+        # Make sure file exists to not create Permission Errors
+        Path(PRESET_FILE).touch()
+    # Merge config
+    config[button] = preset
+    with open(PRESET_FILE, "w") as fp:
+        fp.write(dumps(config))
+
+
 class Config:
-    def __init__(self, logger_name: str = "ConfigObject") -> None:
-        self.logger = getLogger(logger_name)
+    def __init__(self) -> None:
         self.master = None
         self.bpm = None
         self.channels = ChannelCollection()
@@ -58,14 +73,14 @@ class Config:
 
     def update_master(self, value) -> None:
         self.master = value
-        self.logger.warning(f"MASTER => {self.formatter.mix(self.master)}")
+        logger.warning(f"MASTER => {self.formatter.mix(self.master)}")
 
     def get_master(self) -> str:
         return self.master
 
     def update_bpm(self, value) -> None:
         self.bpm = value
-        self.logger.info(f"BPM => {self.bpm}")
+        logger.debug(f"BPM => {self.bpm}")
 
     def get_bpm(self) -> str:
         return self.bpm
@@ -77,7 +92,7 @@ class Config:
         if int(fx_id) == 1 and key == "par2":
             fx1par1 = self.get_fx_value("1", "par1")
             fx1par1 = float(fx1par1) if fx1par1 else 1
-        self.logger.info(
+        logger.debug(
             f"{self.formatter.fx_name(fx_id)} => "
             f"{self.formatter.fx_parname(fx_id, key)} => "
             f"{self.formatter.fx_parval(fx_id, key, value, fx1par1)}"
@@ -92,7 +107,7 @@ class Config:
             return_value = self.formatter.mix(value)
         if key == "mute" or key == "solo":
             return_value = False if int(value) == 0 else True
-        self.logger.info(
+        logger.debug(
             f"Channel {channel_id} => {key} => {return_value}"
         )
 
@@ -101,7 +116,7 @@ class Config:
 
     def update_channel_fx(self, channel_id, fx_id, key, value) -> None:
         self.channels.update_fx(channel_id, fx_id, key, value)
-        self.logger.info(
+        logger.debug(
             f"Channel {channel_id} => "
             f"{self.formatter.fx_name(fx_id)} => {self.formatter.mix(value)}"
         )
@@ -114,22 +129,8 @@ class Config:
             "fx": self.fx.create_preset()
         }
         # Read more values if you want to save more in a preset
-        self.save_preset(button, preset)
+        save_preset(button, preset)
         return preset
-
-    def save_preset(self, button, preset) -> None:
-        config = {}
-        if path.exists(PRESET_FILE):
-            # Read existing config
-            with open(PRESET_FILE, "r") as fp:
-                config = loads(fp.read())
-        else:
-            # Make sure file exists to not create Permission Errors
-            Path(PRESET_FILE).touch()
-        # Merge config
-        config[button] = preset
-        with open(PRESET_FILE, "w") as fp:
-            fp.write(dumps(config))
 
 
 class Fx:
