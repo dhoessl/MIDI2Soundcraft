@@ -100,8 +100,8 @@ function set_config(key, data) {
   if (key == "bpm") {
     const fader_element = $("#delay-bpm");
     const text_element = $("#bpm-value");
-    set_fader(fader_element, int(data) - 60);
-    set_fader_text(text_element, data);
+    set_fader(fader_element, data["bpm"] - 60);
+    set_fader_text(text_element, data["bpm"]);
   } else if (key == "master") {
     const mix_element = $("#channel7mix");
     const text_element = $("#channel7value");
@@ -135,7 +135,7 @@ function set_config(key, data) {
   } else if (key == "toggle_apc_side") {
     const btn_element = $("#view" + data["button"]);
     set_active_view(btn_element);
-  } else if (key = "shift") {
+  } else if (key == "shift") {
     if (data["controller"] == "apc") {
       const btn_element = $("#shift");
     } else if (data["controller"] == "midimix") {

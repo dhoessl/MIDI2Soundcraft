@@ -51,8 +51,7 @@ class WebApp:
     def emit_message(self, key: str, data: str = None) -> None:
         self.socketio.emit(
             "config_update",
-            {"key": key, "data": data},
-            broadcast=True
+            {"key": key, "data": data}
         )
 
     def update_settings(self, msg: dict) -> None:
@@ -107,7 +106,7 @@ class WebApp:
 
     def update_bpm(self) -> None:
         bpm = int(self.config.get_bpm())
-        self.emit_message("bpm", f"{bpm}")
+        self.emit_message("bpm", {"bpm": f"{bpm}"})
 
     def update_master(self) -> None:
         master = float(self.config.get_master())
