@@ -3,7 +3,7 @@
 # Components
 ```mermaid
 ---
-title: "Components",
+title: "Components"
 theme: "dark"
 ---
 flowchart LR
