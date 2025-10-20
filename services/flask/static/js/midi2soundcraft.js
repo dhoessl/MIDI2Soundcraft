@@ -1,9 +1,5 @@
 // Doing some flask socketio
 
-function set_fader_mute (element) {
-  el
-}
-
 function set_fader(element, value) {
   // get all elements of background css string 
   // add it together with new values
